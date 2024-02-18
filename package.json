@@ -1,7 +1,7 @@
 {
-  "name": "synqlite-module",
+  "name": "synqlite-node",
   "type": "module",
-  "source": "src/index.ts",             
+  "source": "src/index.ts",
   "exports": {
     "types": "./dist/index.d.ts",
     "require": "./dist/synqlite.cjs",
@@ -10,11 +10,12 @@
   "types": "./dist/index.d.ts",
   "main": "./dist/synqlite.cjs",
   "module": "./dist/symqlite.module.js",
-  "unpkg": "./dist/synqlite.umd.js", 
+  "unpkg": "./dist/synqlite.umd.js",
   "scripts": {
     "build": "microbundle",
     "watch": "microbundle watch",
-    "test": "vitest"
+    "test": "vitest",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.9",
@@ -29,7 +30,6 @@
     "better-sqlite3": "^9.4.0",
     "date-fns": "^3.3.1",
     "nanoid": "^5.0.5",
-    "pino": "^8.18.0",
-    "short-unique-id": "^5.0.3"
+    "tslog": "^4.9.2"
   }
 }
