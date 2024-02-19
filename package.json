@@ -2,6 +2,9 @@
   "name": "synqlite-node",
   "type": "module",
   "source": "src/index.ts",
+  "engines": {
+    "node": ">=18.18.2"
+  },
   "exports": {
     "types": "./dist/index.d.ts",
     "require": "./dist/synqlite.cjs",
@@ -15,12 +18,16 @@
     "build": "microbundle",
     "watch": "microbundle watch",
     "test": "vitest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "commitlint": "commitlint --edit $1"
   },
   "devDependencies": {
+    "@commitlint/cli": "^18.6.1",
+    "@commitlint/config-conventional": "^18.6.2",
     "@types/better-sqlite3": "^7.6.9",
     "@types/bun": "latest",
     "microbundle": "^0.15.1",
+    "standard-version": "^9.5.0",
     "vite": "^5.1.3",
     "vitest": "^1.2.2"
   },
