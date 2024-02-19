@@ -108,10 +108,9 @@ export class SynQLite {
       existing = res[0];
     }
     this._deviceId = existing?.meta_value;
-    log.warn()
   }
 
-  runQuery<T>({sql, values}: {sql: string, values?: any}): T {
+  runQuery<T = any>({sql, values}: {sql: string, values?: any}): T {
     const quid = Math.ceil(Math.random() * 1000000);
     this.log.debug('@runQuery', {quid, sql, values});
     try {
@@ -189,6 +188,7 @@ export class SynQLite {
       ${where}
       ORDER BY modified_at ASC
     `;
+    console.log(sql)
     const values = lastLocalSync ? [lastLocalSync] : [];
     this.log.debug(sql, values);
   
@@ -242,7 +242,6 @@ export class SynQLite {
     WHERE table_name = :table_name
     AND row_id = :row_id`;
     const res = this.db.prepare(sql).get({table_name, row_id});
-    this.log.warn('@getRecord', res);
     return res;
   }
 
@@ -302,6 +301,7 @@ export class SynQLite {
           break;
         case 'DELETE':
           const sql = `DELETE FROM ${change.table_name} WHERE ${table.id} = ?`;
+          this.log.warn('>>> DELETE SQL <<<', sql, change.row_id);
           await this.run({sql, values: [change.row_id]});
           break;
       }
@@ -349,7 +349,7 @@ export class SynQLite {
     this.log.debug(`Applied ${changes.length} change(s)`)
   };
 
-  private getRecordMetaInsertQuery({table}: {table: SyncableTable}) {
+  private getRecordMetaInsertQuery({table, remove = false}: {table: SyncableTable, remove?: boolean}) {
     /* 
     This is kind of insane, but it works. A rundown of what's happening:
     - We're creating a trigger after a deletion (the easy part)
@@ -368,6 +368,7 @@ export class SynQLite {
     - Finally, we select from this union and limit to 1 result. If a record exists
       then we get that record. If not, we get the values ready for insertion.
     */
+    const version = remove ? 'OLD' : 'NEW';
     const sql = `
     INSERT OR REPLACE INTO ${this.synqPrefix}_record_meta (table_name, row_id, mod, vclock)
     SELECT table_name, row_id, mod, vclock
@@ -375,14 +376,14 @@ export class SynQLite {
       SELECT
         1 as peg,
         '${table.name}' as table_name,
-        NEW.${table.id} as row_id, 
+        ${version}.${table.id} as row_id, 
         IFNULL(json_extract(vclock,'$.${this.deviceId}'), 0) + 1 as mod, 
         json_set(IFNULL(json_extract(vclock, '$'),'{}'), '$.${this.deviceId}', IFNULL(json_extract(vclock,'$.${this.deviceId}'), 0) + 1) as vclock
       FROM ${this.synqPrefix}_record_meta
       WHERE table_name = '${table.name}'
-      AND row_id = OLD.${table.id}
+      AND row_id = ${version}.${table.id}
       UNION
-      SELECT 0 as peg, '${table.name}' as table_name, NEW.${table.id} as row_id, 1, json_object('${this.deviceId}', 1) as vclock
+      SELECT 0 as peg, '${table.name}' as table_name, ${version}.${table.id} as row_id, 1, json_object('${this.deviceId}', 1) as vclock
     )
     ORDER BY peg DESC;
     `;
@@ -455,7 +456,7 @@ export class SynQLite {
       BEGIN
         INSERT INTO ${this.synqPrefix}_changes (table_name, row_id, operation) VALUES ('${table.name}', OLD.${table.id}, 'DELETE');
         
-        ${this.getRecordMetaInsertQuery({table})}
+        ${this.getRecordMetaInsertQuery({table, remove: true})}
       END;`
     });
 
