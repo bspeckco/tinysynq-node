@@ -1,210 +1,18 @@
-import { describe, test, beforeAll, beforeEach, expect, afterAll } from 'vitest';
-import setupDatabase from '../src/lib/index.js';
-import { LogLevel, type SynQLiteOptions, type SynqlDatabase } from '../src/lib/types.js';
-import DB from 'better-sqlite3';
+import { describe, test, expect } from 'vitest';
+import { LogLevel } from '../src/lib/types.js';
 import { nanoid } from 'nanoid';
 import fs from 'fs';
 import { Logger } from 'tslog';
+import { getConfiguredDb, removeDb } from './utils.js';
 
-const TEST_DB_PATH = '/tmp/synql-test.db'; // Use an in-memory database for tests
-const TEST_DB_PREFIX = 'test_sync';
 const ID_SIZE = 16; // 1000 years to reach 1% probability of collision at 1000 IDs per second
 const logLevel = LogLevel.Warn;
 
-type PostCreateFunction = (db: DB.Database) => void;
-type GetConfiguredDbParams = {
-  config: SynQLiteOptions,
-  path?: string;
-  createStatements?: string[];
-  postCreate?: PostCreateFunction;
-}
-
-function getConfiguredDb({
-  createStatements = [],
-  config,
-}: GetConfiguredDbParams)  {
-  const defaultCreateStatement = `
-  CREATE TABLE IF NOT EXISTS items (
-    item_id TEXT PRIMARY KEY,
-    name TEXT
-  );`;
-
-  const preInit = createStatements.length
-    ? createStatements
-    : [defaultCreateStatement];
-
-  const logOptions = {
-    name: 'synql-test',
-    minLevel: logLevel
-  };
-
-  return setupDatabase({ ...config, preInit: (config.preInit || preInit), logOptions });
-}
-
 describe('Sync Module', () => {
-  let db: SynqlDatabase;
-
-  beforeAll(() => {
-    // Initialize the database once for all tests in this suite
-    const config: SynQLiteOptions = {
-      filename: TEST_DB_PATH,
-      prefix: TEST_DB_PREFIX,
-      tables: [
-        { name: 'items', id: 'item_id' }, // Just set the default test table
-      ],
-      postInit: [
-        `INSERT INTO items (item_id, name) VALUES ('fakeId0', 'Initial Item')`,
-        `INSERT INTO items (item_id, name) VALUES ('fakeId1', 'Deleteable Item')`,
-      ]
-    };
-    db = getConfiguredDb({config});
-  });
-
-  afterAll(() => {
-    fs.unlinkSync(TEST_DB_PATH);
-  });
-
-  beforeEach(() => { 
-    // Nothing yet...
-  });
-
-  test('setupDatabase creates necessary tables and triggers', () => {
-    const tables = db.runQuery({
-      sql:`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '${db.synqPrefix}_%'`
-    });
-    const expectedTables = ['changes', 'meta', 'record_meta'];
-    expectedTables.forEach(expectedTable => {
-      expect(tables.some((table: any) => table.name === `${db.synqPrefix}_${expectedTable}`)).toBe(true);
-    });
-
-    // Optionally, check for the existence of triggers
-    const triggers = db.runQuery({
-      sql: `SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE '${db.synqPrefix}_%'`
-    });
-    expect(triggers.length).toBeGreaterThan(0);
-    
-    const deviceId = db.getDeviceId();
-    expect(deviceId).toBeTruthy();
-  });
-
-  test.only('getRecordMeta retrieves meta data for table row change', () => {
-    const priv = getConfiguredDb({
-      config: {
-        wal: true,
-        filename: '/tmp/ptest.db',
-        tables: [
-          {name: 'items', id: 'item_id'},
-        ],
-        prefix: 'tstchtb',
-        postInit: [
-          `INSERT INTO items (item_id, name) VALUES ('fakeId0', 'Initial Item')`,
-          `INSERT INTO items (item_id, name) VALUES ('fakeId1', 'Deleteable Item')`,
-        ]
-      }
-    });
-    const updates = [
-      { id: 1, table_name: 'items', row_id: 'fakeId0', operation: 'INSERT', data: JSON.stringify({item_id: 'fakeId0', name: "Insert Item" }), modified_at: db.utils.utcNowAsISO8601() },
-    ];
-    db.applyChangesToLocalDB({changes: updates});
-    const changes:any[] = db.getChangesSinceLastSync();
-    console.log({changes})
-    const res =  db.getRecordMeta({table_name: 'items', row_id: 'fakeId0'});
-    console.log(res);
-    expect(res).toBeTruthy();
-  });
-
-  test.only('getRecordMeta retrieves meta data for table row change', () => {
-    const priv = getConfiguredDb({
-      config: {
-        wal: true,
-        filename: '/tmp/ptest.db',
-        tables: [
-          {name: 'items', id: 'item_id'},
-        ],
-        prefix: 'tstchtb',
-        postInit: [
-          `INSERT INTO items (item_id, name) VALUES ('fakeId0', 'Initial Item')`,
-          `INSERT INTO items (item_id, name) VALUES ('fakeId1', 'Deleteable Item')`,
-        ]
-      }
-    });
-    const updates = [
-      { id: 1, table_name: 'items', row_id: 'fakeId0', operation: 'INSERT', data: JSON.stringify({item_id: 'fakeId0', name: "Insert Item" }), modified_at: db.utils.utcNowAsISO8601() },
-    ];
-    db.applyChangesToLocalDB({changes: updates});
-    const changes:any[] = db.getChangesSinceLastSync();
-    console.log({changes})
-    const res =  db.getRecordMeta({table_name: 'items', row_id: 'fakeId0'});
-    console.log(res);
-    
-    fs.unlinkSync('/tmp/ptest.db');
-    fs.unlinkSync('/tmp/ptest.db-shm');
-    fs.unlinkSync('/tmp/ptest.db-wal');
-    expect(res).toBeTruthy();
-  });
-
-  test('getChangesSinceLastSync retrieves changes after a given timestamp', () => {
-    const changes:any[] = db.getChangesSinceLastSync();
-    expect(changes.length).toBe(2);
-    expect(changes[0].row_id).toBe('fakeId0');
-  });
-
-  describe('applyChangesToLocalDB', () => {
-    test('UPDATE is applied correctly', () => {
-      // Prepare additional test data if necessary
-
-      // Simulate changes
-      const changes = [
-        { id: 1, table_name: 'items', row_id: 'fakeId0', operation: 'UPDATE', data: JSON.stringify({item_id: 'fakeId0', name: "Updated Item" }), modified_at: db.utils.utcNowAsISO8601() },
-      ];
-      db.applyChangesToLocalDB({changes});
-
-      // Verify changes were applied
-      const item:any = db.runQuery({sql: 'SELECT * FROM items WHERE item_id = ?', values: ['fakeId0']})[0];
-      console.log(item);
-      expect(item.name).toBe('Updated Item');
-    });
-
-    test('DELETE is applied correctly', () => {
-      // Check item exists
-      const existing:any = db.db.prepare('SELECT * FROM items WHERE item_id = ?').get('fakeId1');
-      console.log({existing});
-      expect(existing).toBeTruthy();
-
-      // Simulate UPDATE
-      const changes = [
-        { id: 2, table_name: 'items', row_id: 'fakeId1', operation: 'DELETE', data: JSON.stringify({ name: "Updated Item" }), modified_at: db.utils.utcNowAsISO8601() },
-        // Add more changes as needed for testing
-      ];
-
-      db.applyChangesToLocalDB({changes});
-
-      // Verify item was deleted were applied
-      const deleted:any = db.db.prepare('SELECT * FROM items WHERE item_id = ?').get('fakeId1');
-      console.log({deleted});
-      expect(deleted).toBeFalsy();
-    });
-
-    test('INSERT is applied correctly', () => {
-      // Simulate INSERT
-      const changes = [
-        { id: 3, table_name: 'items', row_id: 'fakeId2', operation: 'INSERT', data: JSON.stringify({ item_id: 'fakeId2', name: "Inserted Item" }), modified_at: db.utils.utcNowAsISO8601() },
-        // Add more changes as needed for testing
-      ];
-
-      db.applyChangesToLocalDB({changes});
-
-      // Verify item was deleted were applied
-      const inserted:any = db.db.prepare('SELECT * FROM items WHERE item_id = ?').get('fakeId2');
-
-      expect(inserted).toBeTruthy();
-      expect(inserted.item_id).toBe('fakeId2');
-    });
-  });
 
   describe('Multiple changes', () => {
     test('Multiple inserts, updates and deletes', () => {
-      const log = new Logger({ name: 'multi-in-up-de', minLevel: LogLevel.Trace });
+      const log = new Logger({ name: 'multi-in-up-de', minLevel: logLevel });
       const preInit = [
         `CREATE TABLE IF NOT EXISTS member (
           member_id TEXT NOT NULL PRIMARY KEY,
@@ -265,6 +73,7 @@ describe('Sync Module', () => {
           ],
           prefix: 'tstchta',
           preInit,
+          postInit: ['select 1'] // override default test postInit
         },
       });
 
@@ -290,8 +99,8 @@ describe('Sync Module', () => {
             {name: 'member', id: 'member_id'},
             {name: 'message', id: 'message_id'},
           ],
-          prefix: 'tstchtb',
-          preInit
+          preInit,
+          postInit: ['select 1'] // override default test postInit
         }
       });
 
@@ -373,9 +182,9 @@ describe('Sync Module', () => {
         
         Object.keys(b).forEach(col => {
           if (a[col] !== b[col]) {
-            console.log({a, b});
+            log.warn({a, b});
             const change = changelog.filter((c: any) => c.row_id === a.member_id);
-            console.log(change);
+            log.warn(change);
             throw new Error(`Columns don't match!\nA: ${a[col]}\nB: ${b[col]}`);
           }
         });
@@ -387,12 +196,8 @@ describe('Sync Module', () => {
       console.log({statA, statB});
 
       // Remove the databases
-      fs.unlinkSync(dbFileA);
-      fs.unlinkSync(dbFileA+'-shm');
-      fs.unlinkSync(dbFileA+'-wal');
-      fs.unlinkSync(dbFileB);
-      fs.unlinkSync(dbFileB+'-shm');
-      fs.unlinkSync(dbFileB+'-wal');
+      removeDb({filename: dbFileA});
+      removeDb({filename: dbFileB});
     });
   })
 });
