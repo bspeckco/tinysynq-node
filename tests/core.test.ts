@@ -4,7 +4,7 @@ import { getConfiguredDb, removeDb } from './utils.js';
 describe('Sync Module', () => {
 
   test('setupDatabase creates necessary tables and triggers', () => {
-    const db = getConfiguredDb();
+    const db = getConfiguredDb({useDefault: true});
     const tables = db.runQuery({
       sql:`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '${db.synqPrefix}_%'`
     });
@@ -25,7 +25,7 @@ describe('Sync Module', () => {
   });
 
   test('getRecordMeta retrieves meta data for table row change', () => {
-    const db = getConfiguredDb();
+    const db = getConfiguredDb({useDefault: true});
     const filename = db.dbName;
     const updates = [
       { id: 1, table_name: 'items', row_id: 'fakeId0', operation: 'UPDATE', data: JSON.stringify({item_id: 'fakeId0', name: "Changed Item" }), modified_at: db.utils.utcNowAsISO8601() },
@@ -38,10 +38,10 @@ describe('Sync Module', () => {
   });
 
   test('getChangesSinceLastSync retrieves all changes', () => {
-    const db = getConfiguredDb();
+    const db = getConfiguredDb({useDefault: true});
     const changes:any[] = db.getChangesSinceLastSync();
-    console.log('@changes', changes)
     expect(changes.length).toBe(2);
     expect(changes[0].row_id).toBe('fakeId0');
+    removeDb({ filename: db.dbName });
   });
 });

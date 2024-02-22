@@ -12,7 +12,7 @@ export class SynQLite {
   private _deviceId: string | undefined;
   private _synqDbId?: string;
   private _synqPrefix?: string;
-  private _synqTables?: SyncableTable[];
+  private _synqTables?: Record<string, SyncableTable>;
   private _synqBatchSize: number = 20;
   private _wal = true;
   private log: Logger<ILogObj>;
@@ -29,10 +29,14 @@ export class SynQLite {
     if (!initData.filename && !initData.sqlite3) {
       throw new Error('No DB filename or connection provided');
     }
+    const _synqTables: Record<string, SyncableTable> = {};
+    initData.tables.forEach(t => {
+      _synqTables[t.name] = t;
+    })
     this._dbName = initData.filename || '';
     this._db = initData.sqlite3 || undefined;
     this._synqPrefix = initData.prefix?.trim().replace(/[^a-z0-9]+$/i, '');
-    this._synqTables = initData.tables;
+    this._synqTables = _synqTables;
     this._synqBatchSize = initData.batchSize || this._synqBatchSize;
     this._wal = initData.wal ?? false;
     this.log = new Logger({
@@ -195,6 +199,24 @@ export class SynQLite {
     return this.runQuery<Change[]>({sql, values});
   };
 
+  enableDebug() {
+    return this.run({
+      sql: `
+      INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value)
+      VALUES ('debug_on', '1')
+      RETURNING *;`
+    });
+  }
+
+  disableDebug() {
+    return this.run({
+      sql: `
+      INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value)
+      VALUES ('debug_on', '0')
+      RETURNING *;`
+    });
+  }
+  
   private enableTriggers() {
     return this.run({
       sql: `
@@ -254,12 +276,32 @@ export class SynQLite {
     return { valid, reason };
   }
 
+  createInsertFromObject({data, table}: { data: Record<string, any>, table: string }) {
+    this.log.silly('@createInsert...', {data});
+    const columnsToInsert = Object.keys(data).join(',');
+    const editable = this._synqTables![table].editable;
+    const updates = Object.keys(data)
+      .filter(key => editable.includes(key))
+      .map(k => `${k} = :${k}`)
+      .join(',');
+    const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
+    // This really needs to be an INSERT ... ON CONFLICT ...
+    // To do so requires knowing the table columns beforehand AND
+    // which ones are editable
+    const insertSql = `
+      INSERT INTO ${table} (${columnsToInsert})
+      VALUES (${insertPlaceholders})
+      ON CONFLICT DO UPDATE set ${updates}
+      RETURNING *;`;
+    return insertSql;
+  }
+
   private async applyChange({
     change,
     savepoint
   }: ApplyChangeParams) {
     try {
-      const table = this.synqTables?.find(t => t.name === change.table_name);
+      const table = this.synqTables![change.table_name];
       let recordData: any;
       if (change.data) {
         try {
@@ -279,6 +321,7 @@ export class SynQLite {
       }
         
       if (!table) throw new Error(`Unable to find table ${change.table_name}`);
+      this.log.silly('@applyChange', {change, table, changeStatus});
       switch(change.operation) {
         /*case 'UPDATE':
           // Check there's something to update
@@ -294,9 +337,13 @@ export class SynQLite {
         //  */
         case 'INSERT':
         case 'UPDATE':
-          const columnsToInsert = Object.keys(recordData).join(',');
-          const insertPlaceholders = Object.keys(recordData).map(k => `:${k}`).join(',');
-          const insertSql = `INSERT OR REPLACE INTO ${change.table_name} (${columnsToInsert}) VALUES (${insertPlaceholders});`;
+          //const columnsToInsert = Object.keys(recordData).join(',');
+          //const insertPlaceholders = Object.keys(recordData).map(k => `:${k}`).join(',');
+          //const insertSql = `INSERT OR REPLACE INTO ${change.table_name} (${columnsToInsert}) VALUES (${insertPlaceholders});`;
+          const insertSql = this.createInsertFromObject({
+            data: recordData,
+            table: change.table_name
+          })
           await this.run({sql: insertSql, values: recordData});
           break;
         case 'DELETE':
@@ -346,7 +393,7 @@ export class SynQLite {
       }
     }
     this.enableTriggers();
-    this.log.debug(`Applied ${changes.length} change(s)`)
+    this.log.silly(`Applied ${changes.length} change(s)`)
   };
 
   private getRecordMetaInsertQuery({table, remove = false}: {table: SyncableTable, remove?: boolean}) {
@@ -365,12 +412,14 @@ export class SynQLite {
     - Included in both selects is
       a 'peg' which we use to sort the UNIONed rows to ensure that if a valid row
       exists, it's the first row returned.
-    - Finally, we select from this union and limit to 1 result. If a record exists
+    - Now we select from this union and limit to 1 result. If a record exists
       then we get that record. If not, we get the values ready for insertion.
+    - Finally, if there's a conflict on PRIMAY KEY or UNIQUE contraints, we update
+      only the columns configured as  editable.
     */
     const version = remove ? 'OLD' : 'NEW';
     const sql = `
-    INSERT OR REPLACE INTO ${this.synqPrefix}_record_meta (table_name, row_id, mod, vclock)
+    INSERT INTO ${this.synqPrefix}_record_meta (table_name, row_id, mod, vclock)
     SELECT table_name, row_id, mod, vclock
     FROM (
       SELECT
@@ -385,8 +434,13 @@ export class SynQLite {
       UNION
       SELECT 0 as peg, '${table.name}' as table_name, ${version}.${table.id} as row_id, 1, json_object('${this.deviceId}', 1) as vclock
     )
-    ORDER BY peg DESC;
-    `;
+    ORDER BY peg DESC
+    LIMIT 1
+    ON CONFLICT DO UPDATE SET
+      mod = json_extract(excluded.vclock,'$.${this.deviceId}'),
+      vclock = json_extract(excluded.vclock,'$')
+    ;`;
+    this.log.silly(sql);
     return sql;
   }
 
@@ -417,7 +471,7 @@ export class SynQLite {
       SELECT 'json_object(' || GROUP_CONCAT('''' || name || ''', NEW.' || name, ',') || ')' AS jo
       FROM pragma_table_info('${table.name}');`
     }))[0];
-    this.log.debug('@jsonObject', JSON.stringify(jsonObject, null, 2));
+    //this.log.warn('@jsonObject', JSON.stringify(jsonObject, null, 2));
 
     const sql = `
       CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_after_insert_${table.name}
@@ -428,10 +482,13 @@ export class SynQLite {
         INSERT INTO ${this.synqPrefix}_changes (table_name, row_id, operation, data)
         VALUES ('${table.name}', NEW.${table.id}, 'INSERT', ${jsonObject.jo});
 
-        INSERT OR REPLACE INTO ${this.synqPrefix}_record_meta (table_name, row_id, mod, vclock)
-        VALUES ('${table.name}', NEW.${table.id}, 1, json_object('${this.deviceId}', 1));
+        ${this.getRecordMetaInsertQuery({table})}
       END;`
     this.run({sql});
+    /*
+    INSERT OR REPLACE INTO ${this.synqPrefix}_record_meta (table_name, row_id, mod, vclock)
+        VALUES ('${table.name}', NEW.${table.id}, 1, json_object('${this.deviceId}', 1));
+        */
 
     this.run({
       sql:`
@@ -457,6 +514,87 @@ export class SynQLite {
         INSERT INTO ${this.synqPrefix}_changes (table_name, row_id, operation) VALUES ('${table.name}', OLD.${table.id}, 'DELETE');
         
         ${this.getRecordMetaInsertQuery({table, remove: true})}
+      END;`
+    });
+
+
+    // DUMPING
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_insert_${table.name}`});
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_update_${table.name}`});
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_delete_${table.name}`});
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_insert_record_meta`});
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_update_record_meta`});
+
+    //const cols = this.runQuery<any[]>({sql: `SELECT * FROM pragma_table_info('${table.name}');`});
+    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD'); //cols.map(c => `${c.name}, OLD.${c.name}`).join(',');
+    console.log(oldJsonObject)
+    this.run({
+      sql:`
+      CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_after_insert_${table.name}
+      AFTER INSERT ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data)
+        VALUES ('${table.name}', 'INSERT', ${jsonObject.jo});
+      END;`
+    });
+
+    this.run({
+      sql:`
+      CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_after_update_${table.name}
+      AFTER UPDATE ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data) VALUES ('${table.name}', 'UPDATE', ${jsonObject.jo});
+      END;`
+    });
+
+    this.run({
+      sql:`
+      CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_after_delete_${table.name}
+      AFTER DELETE ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data) VALUES ('${table.name}', 'DELETE', ${oldJsonObject});
+      END;`
+    });
+
+    this.run({
+      sql:`
+      CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_before_insert_record_meta
+      BEFORE INSERT ON ${this.synqPrefix}_record_meta
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data)
+        VALUES (NEW.table_name, 'BEFORE_INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
+      END;`
+    });
+
+    this.run({
+      sql:`
+      CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_after_insert_record_meta
+      AFTER INSERT ON ${this.synqPrefix}_record_meta
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data)
+        VALUES ('${table.name}', 'INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
+      END;`
+    });
+
+    this.run({
+      sql:`
+      CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_after_update_record_meta
+      AFTER UPDATE ON ${this.synqPrefix}_record_meta
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data)
+        VALUES ('${table.name}', 'INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
       END;`
     });
 

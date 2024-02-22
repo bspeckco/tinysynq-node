@@ -2,7 +2,6 @@ import { Logger } from "tslog";
 import { SYNQLITE_BATCH_SIZE, SYNQLITE_PREFIX } from "./constants.js";
 import { SynQLite } from "./synqlite.class.js";
 import { SynQLiteOptions } from "./types.js";
-import { nanoid } from "nanoid";
 
 const setupDatabase = ({
   filename,
@@ -13,6 +12,7 @@ const setupDatabase = ({
   preInit,
   postInit,
   logOptions,
+  debug,
 }: SynQLiteOptions) => {
 
   if (!tables?.length) throw new Error('Syncable table data required');
@@ -26,7 +26,8 @@ const setupDatabase = ({
     batchSize,
     preInit,
     postInit,
-    logOptions
+    logOptions,
+    debug,
   });
 
   // Create a change-tracking table and index
@@ -39,7 +40,8 @@ const setupDatabase = ({
       data BLOB,
       operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE'
       modified_at TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
-    );`});
+    );`
+  });
 
   db.run({
     sql:`CREATE INDEX IF NOT EXISTS ${db.synqPrefix}_change_modified_idx ON ${db.synqPrefix}_changes(modified_at)`
@@ -71,8 +73,21 @@ const setupDatabase = ({
   `});
 
   db.run({
+    sql: `
+    CREATE TABLE IF NOT EXISTS ${db.synqPrefix}_dump (
+      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW')), 
+      table_name TEXT NOT NULL,
+      operation TEXT,
+      data BLOB
+    );
+  `});
+
+  db.run({
     sql: `CREATE INDEX IF NOT EXISTS ${db.synqPrefix}_meta_name_idx ON ${db.synqPrefix}_meta(meta_name)`
   });
+  
+  // Enable debug mode
+  if (debug) db.enableDebug();
 
   // Set the device ID
   db.setDeviceId();

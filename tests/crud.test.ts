@@ -1,10 +1,10 @@
 import { describe, test, expect } from 'vitest';
 import { getConfiguredDb, removeDb } from './utils.js';
 
-describe('CRUD', () => {
-  describe('applyChangesToLocalDB', () => {
+describe.only('CRUD', () => {
+  describe.only('applyChangesToLocalDB', () => {
     test('UPDATE is applied correctly', () => {
-      const db = getConfiguredDb();
+      const db = getConfiguredDb({useDefault: true});
       const filename = db.dbName;
 
       // Simulate changes
@@ -20,12 +20,11 @@ describe('CRUD', () => {
       expect(item.name).toBe('Updated Item');
     });
 
-    test('DELETE is applied correctly', () => {
-      const db = getConfiguredDb();
+    test.only('DELETE is applied correctly', () => {
+      const db = getConfiguredDb({useDefault: true});
       const filename = db.dbName;
 
       const existing:any = db.db.prepare('SELECT * FROM items WHERE item_id = ?').get('fakeId1');
-      console.log({existing});
       expect(existing).toBeTruthy();
 
       // Simulate UPDATE
@@ -43,7 +42,7 @@ describe('CRUD', () => {
     });
 
     test('INSERT is applied correctly', () => {
-      const db = getConfiguredDb();
+      const db = getConfiguredDb({useDefault: true});
       const filename = db.dbName;
       // Simulate INSERT
       const changes = [

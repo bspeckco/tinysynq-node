@@ -3,7 +3,7 @@ import { LogLevel } from '../src/lib/types.js';
 import { nanoid } from 'nanoid';
 import fs from 'fs';
 import { Logger } from 'tslog';
-import { getConfiguredDb, removeDb } from './utils.js';
+import { getConfiguredDb, getRandom, getRandomColumnUpdate, removeDb } from './utils.js';
 
 const ID_SIZE = 16; // 1000 years to reach 1% probability of collision at 1000 IDs per second
 const logLevel = LogLevel.Warn;
@@ -68,8 +68,8 @@ describe('Sync Module', () => {
         config: {
           filename: dbFileA,
           tables: [
-            {name: 'member', id: 'member_id'},
-            {name: 'message', id: 'message_id'}
+            {name: 'member', id: 'member_id', editable: ['member_name', 'member_status']},
+            {name: 'message', id: 'message_id', editable: ['message_text']},
           ],
           prefix: 'tstchta',
           preInit,
@@ -96,17 +96,13 @@ describe('Sync Module', () => {
         config: {
           filename: dbFileB,
           tables: [
-            {name: 'member', id: 'member_id'},
-            {name: 'message', id: 'message_id'},
+            {name: 'member', id: 'member_id', editable: ['member_name', 'member_status']},
+            {name: 'message', id: 'message_id', editable: ['message_text']},
           ],
           preInit,
           postInit: ['select 1'] // override default test postInit
         }
       });
-
-      function getRandom(size: number) {
-        return Math.floor(Math.random() * size);
-      }
 
       // Perform n random changes on A and check they are applied to B
       const editableTables: any = {
@@ -121,27 +117,10 @@ describe('Sync Module', () => {
       console.log('::: update random :::');
 
       for (let i = 0; i < 10000; i++) {
-        const tables = Object.keys(editableTables);
-        const randTable: string = tables[getRandom(tables.length)];
-        const cols = Object.keys(editableTables[randTable]);
-        const randCol = cols[getRandom(cols.length)];
-        //console.log({randTable, cols, randCol})
-        let randVal: any; 
-        if (Array.isArray(editableTables[randTable][randCol])) {
-          const items = editableTables[randTable][randCol];
-          randVal = items[getRandom(items.length)];
-        }
-        else if (typeof editableTables[randTable][randCol] === 'function') {
-          randVal = editableTables[randTable][randCol](nanoid());
-        }
-        else {
-          console.log('Unable to find value', randCol, typeof  editableTables[randTable][randCol], ':::', editableTables[randTable], )
-        }
-        if (!randVal) {
-          log.warn('{?} No randVal', {randVal});
-          continue;
-        }
-        const idCol = dbA.synqTables?.find((t: any) => t.name === randTable)?.id;
+        const { randVal, randCol, randTable } = getRandomColumnUpdate({ editableTables });
+
+        // console.log({randVal, randCol, randTable});
+        const idCol = dbA.synqTables![randTable].id;
 
         if (!idCol) {
           console.warn(`Unable to determine ID column for '${randTable}'`);

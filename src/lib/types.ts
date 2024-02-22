@@ -3,6 +3,7 @@ import { ISettingsParam, ILogObj } from 'tslog';
 export type SyncableTable = {
   name: string;
   id: string;
+  editable: string[];
 }
 
 export type SynQLiteOptionsBase = {
@@ -15,6 +16,7 @@ export type SynQLiteOptionsBase = {
   preInit?: string[];
   postInit?: string[];
   logOptions?: ISettingsParam<ILogObj>;
+  debug?: boolean;
 }
 
 export type SynQLiteOptions = SynQLiteOptionsBase & (
@@ -75,12 +77,17 @@ export type MetaRowData = {
   meta_value: string;
 }
 
+export type VClock = {
+  [deviceId: string]: number;
+}
+
 export type Change = {
   id: number;
   table_name: string;
   row_id: string;
   operation: string;
   data: string; // JSON string
+  vclock?: VClock;
   modified_at: string;
 }
 
