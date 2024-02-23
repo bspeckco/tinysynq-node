@@ -46,7 +46,7 @@ describe.only('sync', () => {
   });
 
   describe('vclock', () => {
-    test.skip('should increment by 1', () => {
+    test('should increment by 1', () => {
       const sq = getNew();
       const deviceId = sq.deviceId as string;
       const entry = sq.runQuery({
@@ -57,16 +57,14 @@ describe.only('sync', () => {
 
       entry.entry_title = `Updated at ${Date.now()}`;
       const insertSql = sq.createInsertFromObject({data: entry, table: 'entry'});
-      // const res = sq.runQuery({sql: insertSql, values: entry});
-      // const changes = sq.getChangesSinceLastSync();
+      sq.runQuery({sql: insertSql, values: entry});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
-      // console.log({res, changes, meta, originalMeta});
 
       expect(meta.vclock).toMatchObject(JSON.stringify({[deviceId]: 2}));
       removeDb({ filename: sq.dbName });
     });
 
-    test.skip('should add another participant', async () => {
+    test('should add another participant', async () => {
       const sq = getNew();
       const localId = sq.deviceId as string;
       const remoteId = getNanoId();
