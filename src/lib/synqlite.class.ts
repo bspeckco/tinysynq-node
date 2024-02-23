@@ -1,7 +1,8 @@
 import DB from 'better-sqlite3'
-import { ApplyChangeParams, Change, LogLevel, SynQLiteOptions, SyncableTable } from './types.js';
+import { ApplyChangeParams, Change, LogLevel, SynQLiteOptions, SyncableTable, VClock } from './types.js';
 import { Logger, ILogObj } from 'tslog';
 import { nanoid } from 'nanoid';
+import { VectorClock } from './vector-clock.class.js';
 
 const log = new Logger({ name: 'synqlite-web-init', minLevel: LogLevel.Info });
 const strtimeAsISO8601 = `STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')`;
@@ -88,6 +89,10 @@ export class SynQLite {
 
   get wal() {
     return this._wal;
+  }
+
+  getTableIdColumn({table}: {table: string}) {
+    return this.synqTables![table]?.id as string;
   }
 
   setDeviceId() {
@@ -185,12 +190,15 @@ export class SynQLite {
     let where: string = '';
   
     if (lastLocalSync) {
-      where = 'WHERE modified_at > ?'
+      where = 'WHERE c.modified_at > ?'
     }
     const sql = `
-    SELECT * FROM ${this.synqPrefix}_changes
+      SELECT * FROM ${this._synqPrefix}_changes c
+      INNER JOIN ${this._synqPrefix}_record_meta trm
+      ON trm.table_name = c.table_name
+      AND trm.row_id = c.row_id
       ${where}
-      ORDER BY modified_at ASC
+      ORDER BY c.modified_at ASC
     `;
     console.log(sql)
     const values = lastLocalSync ? [lastLocalSync] : [];
@@ -250,11 +258,37 @@ export class SynQLite {
     return this.run({sql});
   }
 
-  private getRecord({table, id}: {table: SyncableTable, id: any}) {
-    const sql = `SELECT * FROM ${table.name} WHERE ${table.id} = ?`;
-    const res = this.runQuery({sql, values: [id]});
+  private getRecord({table_name, row_id}: {table_name: string, row_id: any}) {
+    const idCol = this.getTableIdColumn({table: table_name});
+    const sql = `SELECT * FROM ${table_name} WHERE ${idCol} = ?`;
+    const res = this.runQuery({sql, values: [row_id]});
     this.log.debug('@getRecord', res);
-    return res;
+    return res[0];
+  }
+
+  getById<T>({table_name, row_id}: {table_name: string, row_id: any}): T | any {
+    return this.getRecord({table_name, row_id});
+  }
+
+  insertRecordMeta({change, vclock}: any) {
+    this.log.silly('<<< @insertRecordMeta >>>', {change, vclock});
+    const { table_name, row_id } = change;
+    const mod = vclock[this._deviceId!] || 0;
+    const values = {
+      table_name,
+      row_id,
+      mod,
+      vclock: JSON.stringify(vclock)
+    };
+    return this.runQuery({
+      sql: `
+      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, mod, vclock)
+      VALUES (:table_name, :row_id, :mod, :vclock)
+      ON CONFLICT DO UPDATE SET mod = :mod, vclock = :vclock
+      RETURNING *
+      `,
+      values,
+    });
   }
 
   getRecordMeta({table_name, row_id}: {table_name: string, row_id: string}) {
@@ -267,13 +301,36 @@ export class SynQLite {
     return res;
   }
 
-  private validateChange(change: Change): { valid: boolean, reason: string } {
+  private validateChange(change: Change): { valid: boolean, reason: string, vclock: VClock } {
     let valid = true;
     let reason = '';
-    const { table_name, row_id } = change;
-
+    const { table_name, row_id, vclock: remote = {} } = change;
+    const record = this.getRecord({table_name, row_id});
     const meta = this.getRecordMeta({table_name, row_id});
-    return { valid, reason };
+    const local = JSON.parse(meta?.vclock || '{}');
+    const localId = this.deviceId!;   
+
+    let latest: VClock = {};
+
+    // If we don't have the record, treat it as new
+    if (!record || !local || !local[localId]) {
+      latest = change.vclock!; // @TODO: vclock must be mandatory on Change
+    }
+    // Handle all the other scenarios
+    else {
+      const localV = new VectorClock({ vclock: local, localId });
+      const conflicted = localV.isConflicted({ remote });
+      this.log.debug({conflicted});
+
+      if (conflicted) {
+        // @TODO: Last write wins
+      }
+      else {
+        latest = localV.merge();
+      }
+    }
+    
+    return { valid, reason, vclock: latest };
   }
 
   createInsertFromObject({data, table}: { data: Record<string, any>, table: string }) {
@@ -284,6 +341,8 @@ export class SynQLite {
       .filter(key => editable.includes(key))
       .map(k => `${k} = :${k}`)
       .join(',');
+    
+    if (!updates) throw new Error('No changes availble');
     const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
     // This really needs to be an INSERT ... ON CONFLICT ...
     // To do so requires knowing the table columns beforehand AND
@@ -291,8 +350,9 @@ export class SynQLite {
     const insertSql = `
       INSERT INTO ${table} (${columnsToInsert})
       VALUES (${insertPlaceholders})
-      ON CONFLICT DO UPDATE set ${updates}
+      ON CONFLICT DO UPDATE SET ${updates}
       RETURNING *;`;
+
     return insertSql;
   }
 
@@ -323,23 +383,8 @@ export class SynQLite {
       if (!table) throw new Error(`Unable to find table ${change.table_name}`);
       this.log.silly('@applyChange', {change, table, changeStatus});
       switch(change.operation) {
-        /*case 'UPDATE':
-          // Check there's something to update
-          const existing = this.getRecord({table, id: change.row_id});
-          if (!existing) throw new Error(`Unable to apply update: record doesn't exist! ${table.name}.${table.id} = ${change.row_id}: `);
-
-          const columnsToUpdate = Object.keys(recordData).map(key => `${key} = :${key}`).join(', ');
-          const updateValues = { ...recordData, [table.id]: change.row_id};
-          const updateSql = `UPDATE ${change.table_name} SET ${columnsToUpdate} WHERE ${table.id} = :${table.id}`;
-          this.log.trace('@performing update... sql:', updateSql, updateValues);
-          await this.run({sql: updateSql, values: updateValues});
-          break;
-        //  */
         case 'INSERT':
         case 'UPDATE':
-          //const columnsToInsert = Object.keys(recordData).join(',');
-          //const insertPlaceholders = Object.keys(recordData).map(k => `:${k}`).join(',');
-          //const insertSql = `INSERT OR REPLACE INTO ${change.table_name} (${columnsToInsert}) VALUES (${insertPlaceholders});`;
           const insertSql = this.createInsertFromObject({
             data: recordData,
             table: change.table_name
@@ -353,7 +398,6 @@ export class SynQLite {
           break;
       }
 
-      // @TODO: do we need last_sync_local per table?
       const metaInsert = this.db.prepare(`INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES(:name, :value)`);
       const metaInsertMany = this.db.transaction((data: any) => {
         for (const d of data) metaInsert.run(d);
@@ -362,6 +406,10 @@ export class SynQLite {
         { name: 'last_local_sync', value: `STRFTIME('%Y-%m-%d %H:%M:%f','NOW')`},
         { name: 'last_sync', value: change.id }
       ]);
+
+      // Insert merged VClock data
+      const updatedRecordMeta = this.insertRecordMeta({change, vclock: changeStatus.vclock});
+      this.log.silly({updatedRecordMeta});
     }
     catch (error) {
       await this.rollbackTransaction({savepoint})
@@ -444,34 +492,26 @@ export class SynQLite {
     return sql;
   }
 
-  /*
-    Original (working) record_meta insert query:
-
-    `INSERT OR REPLACE INTO ${this.synqPrefix}_record_meta (table_name, row_id, mod, vclock)
-        SELECT 
-          '${table.name}',
-          NEW.${table.id}, 
-          IFNULL(json_extract(vclock,'$.${this.deviceId}'), 0) + 1, 
-          json_set(IFNULL(json_extract(vclock, '$'),'{}'), '$.${this.deviceId}', IFNULL(json_extract(vclock,'$.${this.deviceId}'), 0) + 1)
-        FROM ${this.synqPrefix}_record_meta
-        WHERE table_name = '${table.name}'
-        AND row_id = NEW.${table.id};`
-  */  
-
   setupTriggersForTable({ table }: { table: SyncableTable }) {
     this.log.debug('Setting up triggers for', table.name);
 
-    // Ensure triggers are up to date
-    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_after_insert_${table.name}`});
-    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_after_update_${table.name}`});
-    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_after_delete_${table.name}`});
-
+    // Template for inserting the new value as JSON in the `*_changes` table.
     const jsonObject = (this.runQuery<any>({
       sql:`
       SELECT 'json_object(' || GROUP_CONCAT('''' || name || ''', NEW.' || name, ',') || ')' AS jo
       FROM pragma_table_info('${table.name}');`
     }))[0];
-    //this.log.warn('@jsonObject', JSON.stringify(jsonObject, null, 2));
+    this.log.silly('@jsonObject', JSON.stringify(jsonObject, null, 2));
+
+    /**
+     * These triggers run for changes originating locally. They are disabled
+     * when remote changes are being applied (`triggers_on` in `*_meta` table).
+     */
+
+    // Ensure triggers are up to date
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_after_insert_${table.name}`});
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_after_update_${table.name}`});
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_after_delete_${table.name}`});
 
     const sql = `
       CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_after_insert_${table.name}
@@ -485,10 +525,6 @@ export class SynQLite {
         ${this.getRecordMetaInsertQuery({table})}
       END;`
     this.run({sql});
-    /*
-    INSERT OR REPLACE INTO ${this.synqPrefix}_record_meta (table_name, row_id, mod, vclock)
-        VALUES ('${table.name}', NEW.${table.id}, 1, json_object('${this.deviceId}', 1));
-        */
 
     this.run({
       sql:`
@@ -518,16 +554,23 @@ export class SynQLite {
     });
 
 
-    // DUMPING
+    /**
+     * All the triggers below will only be executed if `meta_name="debug_on"`
+     * has the `meta_value=1` in the *_meta table, regardless of `triggers_on`.
+     */
+
+    // Remove previous versions
     this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_insert_${table.name}`});
     this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_update_${table.name}`});
     this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_delete_${table.name}`});
+    this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_before_insert_record_meta`});
     this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_insert_record_meta`});
     this.run({sql: `DROP TRIGGER IF EXISTS ${this.synqPrefix}_dump_after_update_record_meta`});
 
-    //const cols = this.runQuery<any[]>({sql: `SELECT * FROM pragma_table_info('${table.name}');`});
-    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD'); //cols.map(c => `${c.name}, OLD.${c.name}`).join(',');
-    console.log(oldJsonObject)
+    /**
+     * @Debugging Do not remove
+     * These triggers allow a rudimentary tracing of DB actions on the synced tables.
+     */
     this.run({
       sql:`
       CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_after_insert_${table.name}
@@ -551,6 +594,8 @@ export class SynQLite {
       END;`
     });
 
+    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD');
+    
     this.run({
       sql:`
       CREATE TRIGGER IF NOT EXISTS ${this.synqPrefix}_dump_after_delete_${table.name}
@@ -561,6 +606,11 @@ export class SynQLite {
         INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data) VALUES ('${table.name}', 'DELETE', ${oldJsonObject});
       END;`
     });
+
+    /**
+     * @Debugging Do not remove
+     * These triggers allow comparison record meta before and after insert.
+     */
 
     this.run({
       sql:`
@@ -582,7 +632,7 @@ export class SynQLite {
       WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
       BEGIN
         INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data)
-        VALUES ('${table.name}', 'INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
+        VALUES ('${table.name}', 'AFTER_INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
       END;`
     });
 
@@ -594,7 +644,7 @@ export class SynQLite {
       WHEN (SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
       BEGIN
         INSERT INTO ${this.synqPrefix}_dump (table_name, operation, data)
-        VALUES ('${table.name}', 'INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
+        VALUES ('${table.name}', 'AFTER_UPDATE', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
       END;`
     });
 

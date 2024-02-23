@@ -137,10 +137,8 @@ describe('Sync Module', () => {
           values: updateData
         });
       }
-      const changelog = dbA.runQuery<any[]>({
-        sql: `SELECT * FROM ${dbA.synqPrefix}_changes;`
-      });
-      console.log(':O:O: changes to apply:', changelog.length);
+      const changelog = dbA.getChangesSinceLastSync();
+      log.debug(':O:O: changes to apply:', changelog.length);
       expect(changelog).toBeTruthy();
 
       // Apply the changes to database B

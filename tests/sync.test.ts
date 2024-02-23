@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { generateChangesForTable, getConfiguredDb, removeDb } from "./utils.js";
+import { generateChangesForTable, getConfiguredDb, getNanoId, removeDb, wait } from "./utils.js";
 import { SynQLite } from "../src/lib/synqlite.class.js";
 import { testCreateTableEntry, testCreateTableJournal, testEntryData, testInsertRowEntry, testInsertRowJournal, testJournalData } from "./test-data/journal.data.js";
 import { SYNQLITE_NANOID_SIZE } from "../src/lib/constants.js";
@@ -17,7 +17,7 @@ const getNew = () => {
       preInit,
       tables: [
         { name: 'journal', id: 'journal_id', editable: ['journal_name']},
-        { name: 'entry', id: 'entry_id', editable: ['entry_title', 'entry_content', 'entry_date']}
+        { name: 'entry', id: 'entry_id', editable: ['entry_title', 'entry_content', 'entry_date', 'entry_updated']}
       ],
       logOptions: {
         minLevel: LogLevel.Info
@@ -46,17 +46,19 @@ describe.only('sync', () => {
   });
 
   describe('vclock', () => {
-    test('should increment', () => {
+    test.skip('should increment by 1', () => {
       const sq = getNew();
       const deviceId = sq.deviceId as string;
       const entry = sq.runQuery({
         sql: 'SELECT * FROM entry LIMIT 1'
       })[0];
       const originalMeta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
+      expect(originalMeta.vclock).toMatchObject(JSON.stringify({[deviceId]: 1}));
+
       entry.entry_title = `Updated at ${Date.now()}`;
       const insertSql = sq.createInsertFromObject({data: entry, table: 'entry'});
-      const res = sq.runQuery({sql: insertSql, values: entry});
-      const changes = sq.getChangesSinceLastSync();
+      // const res = sq.runQuery({sql: insertSql, values: entry});
+      // const changes = sq.getChangesSinceLastSync();
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
       // console.log({res, changes, meta, originalMeta});
 
@@ -64,25 +66,86 @@ describe.only('sync', () => {
       removeDb({ filename: sq.dbName });
     });
 
-    test.skip('should resolve changes presented in chronological order', () => {
+    test.skip('should add another participant', async () => {
       const sq = getNew();
-      const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
-      const localChanges = sq.getChangesSinceLastSync();
-      const remoteChanges = generateChangesForTable({
-        sq, 
+      const localId = sq.deviceId as string;
+      const remoteId = getNanoId();
+      const changes = generateChangesForTable({
+        sq,
         table: 'entry',
-        editableColumns: {
-          entry_title: null,
-          entry_date: null,
-          entry_content: null
-        },
-        origin: deviceId
+        origin: remoteId,
+        operation: 'UPDATE',
       });
-      console.log({localChanges, remoteChanges})
-      //sq.applyChangesToLocalDB({ changes });
-      //const latest = sq.getChangesSinceLastSync();
-      //console.log({latest})
+
+      const entry = sq.getById({table_name: 'entry', row_id: changes[0].row_id});
+      const originalMeta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
+      expect(originalMeta.vclock).toMatchObject(JSON.stringify({[localId]: 1}));
+      
+      sq.applyChangesToLocalDB({ changes });
+      
+      // Change might not be immediately visible, wait a moment.
+      await wait({ms: 100});
+      const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
+
       removeDb({ filename: sq.dbName });
+      expect(meta.vclock).toMatchObject(JSON.stringify({[localId]: 1, [remoteId]: 1}));
+    }); 
+
+    test('should increment a local ID in vclock', () => {
+      const sq = getNew();
+      console.log('@DB_FILE:', sq.dbName);
+      const localId = sq.deviceId as string;
+      const remoteId = getNanoId();
+      const changes = generateChangesForTable({
+        sq,
+        table: 'entry',
+        origin: remoteId,
+        operation: 'UPDATE',
+      });
+      console.log({changes});
+      sq.applyChangesToLocalDB({ changes });
+
+      const entry = sq.getById<any>({table_name: 'entry', row_id: changes[0].row_id});
+      entry.entry_title = `Updated to ${performance.now()}`;
+      const sql = sq.createInsertFromObject({
+        data: entry,
+        table: 'entry'
+      });
+      const updatedEntry = sq.runQuery({sql, values: entry});
+      const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
+      console.log({updatedEntry, meta});
+
+      removeDb({ filename: sq.dbName });
+      expect(JSON.parse(meta.vclock)).toMatchObject({[localId]: 2});
+    });
+
+    test('should increment a local ID in vclock with another participant', async () => {
+      const sq = getNew();
+      console.log('@DB_FILE:', sq.dbName);
+      const localId = sq.deviceId as string;
+      const remoteId = getNanoId();
+      const changes = generateChangesForTable({
+        sq,
+        table: 'entry',
+        origin: remoteId,
+        operation: 'UPDATE',
+      });
+
+      sq.applyChangesToLocalDB({ changes });
+      
+      await wait({ms: 100});
+
+      const entry = sq.getById<any>({table_name: 'entry', row_id: changes[0].row_id});
+      entry.entry_title = `Updated to ${performance.now()}`;
+      const sql = sq.createInsertFromObject({
+        data: entry,
+        table: 'entry'
+      });
+      sq.runQuery({sql, values: entry});
+      const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
+
+      removeDb({ filename: sq.dbName });
+      expect(JSON.parse(meta.vclock)).toMatchObject({[remoteId]: 1, [localId]: 2});
     });
   });
 
@@ -94,11 +157,6 @@ describe.only('sync', () => {
       const changes = generateChangesForTable({
         sq, 
         table: 'entry',
-        editableColumns: {
-          entry_title: null,
-          entry_date: null,
-          entry_content: null
-        },
         origin: deviceId
       });
       console.log({changes})

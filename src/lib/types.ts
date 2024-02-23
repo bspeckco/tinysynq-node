@@ -87,7 +87,7 @@ export type Change = {
   row_id: string;
   operation: string;
   data: string; // JSON string
-  vclock?: VClock;
+  vclock: VClock;
   modified_at: string;
 }
 

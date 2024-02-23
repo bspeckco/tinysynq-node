@@ -48,6 +48,10 @@ export function getConfiguredDb(configData?: {config?: ConfigureParams, useDefau
   return setupDatabase({ ...defaultConfig, ...(config || {}) });
 }
 
+export function wait({ms = 100}: {ms: number}) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function getRandomDbName() {
   return `/tmp/tst_${Math.ceil(Math.random() * 10000)}.db`
 }
@@ -101,16 +105,19 @@ function generateRowData(
     // Get record as template.
     ? sq.runQuery({sql: `SELECT * FROM ${table_name} ORDER BY RANDOM() LIMIT 1`})[0]
     : {};
+  
+  // console.log('<<generateRowData>>', {data, columns, values});
   for (const column of columns) {
     const col = column.name;
     if (col === 'id' || col.endsWith('_id')) {
       // Updates and deletes need an existing record.
       data[col] = operation === ChangeOperation.INSERT ? row_id : data[column.name];
     }
-    else if (values[col] !== 'undefined') {
+    else if (values && values[col] !== 'undefined') {
       data[col] = values[col];
     }
   }
+  console.log
   
   // modified_at: db.utils.utcNowAsISO8601()
   return data;
@@ -125,6 +132,7 @@ export function getRandomValue({columnType}: {columnType: string}) {
     case 'BOOLEAN':
       return getRandom(2);
     case 'DATE':
+    case 'TIMESTAMP':
       return new Date().toISOString().replace(/[TZ]/g, '');
   }
 }
@@ -152,8 +160,8 @@ export function getDefaultColumnValue({columnData, columnName, allowEmpty = true
 }
 
 export function generateChangesForTable(
-  {sq, table, origin, editableColumns, operation, total = 1}:
-  {sq: SynQLite, table: string, origin: string, editableColumns: Record<string, any>, operation?: Operation, total?: number}
+  {sq, table, origin, operation, total = 1}:
+  {sq: SynQLite, table: string, origin: string, operation?: Operation, total?: number}
 ) {
   // Get table schema
   const columns = sq.runQuery({
@@ -162,19 +170,19 @@ export function generateChangesForTable(
 
   if (!columns.length) throw new Error(`Failed to get column data for ${table}`);
 
-  const editableTables: any = {
-    [table]: {}
-  };
+  const columnUpdates: any = {};
+  const editableColumns = sq.synqTables![table].editable;
 
   for (const col of columns) {
-    if (col.name in editableColumns) {
+    if (editableColumns.includes(col.name)) {
       let val = getDefaultColumnValue({
         columnData: editableColumns[col.name],
         columnName: col.name
       }) || getRandomValue({columnType: col.type});
-      editableTables[table][col.name] = val;
+      columnUpdates[col.name] = val;
     }
   }
+  console.log({columns, editableColumns, columnUpdates})
 
   // Get highest existing change ID
   const highestId = sq.runQuery({
@@ -188,21 +196,23 @@ export function generateChangesForTable(
   let created = 0;
   while (created < total) {
     const row_id = `fake${currentId}`;
-    const { randTable, randCol, randVal } = getRandomColumnUpdate({editableTables});
+    const { randTable, randCol, randVal } = getRandomColumnUpdate(
+      { editableTables: { [table]: columnUpdates } }
+    );
     // console.log({randTable, randCol, randVal, editableTables})
-    editableTables[randTable][randCol] = randVal;
+    columnUpdates[randCol] = randVal;
     const randOp = operation || operations[getRandom(operations.length)];
     const rowData: any = generateRowData({
       sq: sq,
       table_name: randTable,
       row_id,
-      values: editableTables[randTable],
+      values: columnUpdates,
       operation: randOp as Operation,
       columns
     });
     const idCol = getTableIdColumn({db: sq, table: randTable});
     if (!idCol) throw new Error('Invalid ID column: ' + idCol);
-    console.log(rowData)
+
     const recordMeta = sq.getRecordMeta({
       table_name: randTable,
       row_id: rowData[idCol]
@@ -216,7 +226,7 @@ export function generateChangesForTable(
     const change: Change = {
       id: currentId,
       table_name: randTable,
-      row_id,
+      row_id: rowData[idCol],
       operation: randOp as Operation,
       data: JSON.stringify(rowData),
       vclock,
