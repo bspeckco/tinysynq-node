@@ -36,14 +36,6 @@ const getNew = () => {
 };
 
 describe.only('sync', () => {
-  
-  beforeAll(() => {
-    
-  });
-
-  afterAll(() => {
-    //removeDb({ filename: sq.dbName });
-  });
 
   describe('vclock', () => {
     test('should increment by 1', () => {
@@ -60,8 +52,8 @@ describe.only('sync', () => {
       sq.runQuery({sql: insertSql, values: entry});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
-      expect(meta.vclock).toMatchObject(JSON.stringify({[deviceId]: 2}));
       removeDb({ filename: sq.dbName });
+      expect(meta.vclock).toMatchObject(JSON.stringify({[deviceId]: 2}));
     });
 
     test('should add another participant', async () => {

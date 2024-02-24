@@ -100,7 +100,6 @@ describe('Sync Module', () => {
             {name: 'message', id: 'message_id', editable: ['message_text']},
           ],
           preInit,
-          postInit: ['select 1'] // override default test postInit
         }
       });
 
