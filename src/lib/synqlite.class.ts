@@ -2,7 +2,7 @@ import DB from 'better-sqlite3'
 import { ApplyChangeParams, Change, LogLevel, SynQLiteOptions, SyncableTable, VClock } from './types.js';
 import { Logger, ILogObj } from 'tslog';
 import { nanoid } from 'nanoid';
-import { VectorClock } from './vector-clock.class.js';
+import { VCompare } from './vcompare.class.js';
 
 const log = new Logger({ name: 'synqlite-web-init', minLevel: LogLevel.Info });
 const strtimeAsISO8601 = `STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')`;
@@ -314,11 +314,11 @@ export class SynQLite {
 
     // If we don't have the record, treat it as new
     if (!record || !local || !local[localId]) {
-      latest = change.vclock!; // @TODO: vclock must be mandatory on Change
+      latest = change.vclock;
     }
     // Handle all the other scenarios
     else {
-      const localV = new VectorClock({ vclock: local, localId });
+      const localV = new VCompare({ local, remote, localId });
       const conflicted = localV.isConflicted({ remote });
       this.log.debug({conflicted});
 
