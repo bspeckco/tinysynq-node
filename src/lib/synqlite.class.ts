@@ -3,9 +3,21 @@ import { ApplyChangeParams, Change, LogLevel, SynQLiteOptions, SyncableTable, VC
 import { Logger, ILogObj } from 'tslog';
 import { nanoid } from 'nanoid';
 import { VCompare } from './vcompare.class.js';
+import { SYNQ_INSERT } from './constants.js';
 
 const log = new Logger({ name: 'synqlite-web-init', minLevel: LogLevel.Info });
 const strtimeAsISO8601 = `STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')`;
+
+type PreProcessChangeOptions = {
+  change: Change, restore?: boolean
+}
+
+type PreProcessChangeResult = { 
+  valid: boolean;
+  reason: string;
+  vclock: VClock;
+  checks: Record<string, boolean>
+}
 
 export class SynQLite {
   private _db: any;
@@ -91,8 +103,8 @@ export class SynQLite {
     return this._wal;
   }
 
-  getTableIdColumn({table}: {table: string}) {
-    return this.synqTables![table]?.id as string;
+  getTableIdColumn({table_name}: {table_name: string}) {
+    return this.synqTables![table_name]?.id as string;
   }
 
   setDeviceId() {
@@ -183,22 +195,25 @@ export class SynQLite {
     return res[0]?.meta_value;
   }
   
-  getChangesSinceLastSync(data?: {lastSync: string}): Change[] {
+  getChangesSinceLastSync(data?: {lastSync?: string, columns?: string[]}): Change[] {
     let lastLocalSync: string = data?.lastSync || this.getLastSync();
+    let { columns = ['*'] } = data || {};
     this.log.debug('@getChangesSinceLastSync', lastLocalSync);
   
     let where: string = '';
+    let columnSelection = columns.join(','); // @TODO: This is UGLY and UNSAFE
   
     if (lastLocalSync) {
-      where = 'WHERE c.modified_at > ?'
+      where = 'WHERE c.modified > ?'
     }
     const sql = `
-      SELECT * FROM ${this._synqPrefix}_changes c
+      SELECT ${columnSelection}
+      FROM ${this._synqPrefix}_changes c
       INNER JOIN ${this._synqPrefix}_record_meta trm
       ON trm.table_name = c.table_name
       AND trm.row_id = c.row_id
       ${where}
-      ORDER BY c.modified_at ASC
+      ORDER BY c.modified ASC
     `;
     console.log(sql)
     const values = lastLocalSync ? [lastLocalSync] : [];
@@ -259,7 +274,7 @@ export class SynQLite {
   }
 
   private getRecord({table_name, row_id}: {table_name: string, row_id: any}) {
-    const idCol = this.getTableIdColumn({table: table_name});
+    const idCol = this.getTableIdColumn({table_name: table_name});
     const sql = `SELECT * FROM ${table_name} WHERE ${idCol} = ?`;
     const res = this.runQuery({sql, values: [row_id]});
     this.log.debug('@getRecord', res);
@@ -271,7 +286,7 @@ export class SynQLite {
   }
 
   insertRecordMeta({change, vclock}: any) {
-    this.log.silly('<<< @insertRecordMeta >>>', {change, vclock});
+    //this.log.warn('<<< @insertRecordMeta >>>', {change, vclock});
     const { table_name, row_id } = change;
     const mod = vclock[this._deviceId!] || 0;
     const values = {
@@ -301,44 +316,146 @@ export class SynQLite {
     return res;
   }
 
-  private validateChange(change: Change): { valid: boolean, reason: string, vclock: VClock } {
-    let valid = true;
-    let reason = '';
+  getPending() {
+    const sql = `
+    SELECT *
+    FROM ${this._synqPrefix}_pending
+    ORDER BY id ASC
+    `;
+    const res = this.runQuery({sql});
+    return res;
+  }
+
+  /**
+   * Creates new pending record to be applied later.
+   * 
+   * @param param0 
+   * @returns Newly created pending record
+   */
+  private processOutOfOrderChange({change}: {change: Change}) {
+    const {id, ...data} = change;
+    const sql = this.createInsertFromSystemObject({
+      data,
+      table_name: `${this._synqPrefix}_pending`,
+    });
+    this.log.trace('@processOutOfOrderChange\n', sql, change);
+    const values: any = { ...data};
+    values.vclock = JSON.stringify(data.vclock);
+    const res = this.runQuery({sql, values});
+    this.log.trace('@processOutOfOrderChange\n', {res});
+    return res;
+  }
+
+  /**
+   * Determines whether to treat conflicted change as valid or invalid.
+   * 
+   * @param param0 
+   * @returns boolean 
+   */
+  private processConflictedChange<T>({ record, change }: {record: T|any, change: Change}): boolean {
+    const localMeta = this.getRecordMeta({...change});
+    this.log.trace('<<<@ processConflictedChange LLW @>>>', change.id, change.table_name, change.row_id, {record, localMeta, change});
+    if (change.modified > localMeta.modified) {
+      this.log.trace('<!> INTEGRATING REMOTE', change.id, change.table_name, change.row_id);
+      // Update local with the incoming changes
+      return true;
+    }
+    else {
+      this.log.warn('<!> KEEPING LOCAL', change.id, change.table_name, change.row_id);
+      // Keep the local change, but record receipt of the record.
+      return false;
+    }
+  }
+
+  /**
+   * Checks for issues with incoming change to be applied.
+   * 
+   * @returns 
+   */
+  private preProcessChange(
+    {change, restore}: PreProcessChangeOptions
+  ): PreProcessChangeResult {
+    let defaultReason = 'unknown';
+    let valid = false;
+    let reason = defaultReason;
+    const localId = this.deviceId!;
     const { table_name, row_id, vclock: remote = {} } = change;
     const record = this.getRecord({table_name, row_id});
     const meta = this.getRecordMeta({table_name, row_id});
-    const local = JSON.parse(meta?.vclock || '{}');
-    const localId = this.deviceId!;   
+    const local = meta?.vclock ? JSON.parse(meta.vclock) : {};
 
     let latest: VClock = {};
+    const localV = new VCompare({ local, remote, localId });
+    let displaced = false;
+    let conflicted = false;
+    let stale = false;
 
     // If we don't have the record, treat it as new
-    if (!record || !local || !local[localId]) {
+    if (!restore && !record && change.operation !== SYNQ_INSERT) {
+      reason = 'update before insert';
+      this.processOutOfOrderChange({change});
+    }
+    else if (restore || !record || !local || !local[localId]) {
       latest = change.vclock;
     }
-    // Handle all the other scenarios
-    else {
-      const localV = new VCompare({ local, remote, localId });
-      const conflicted = localV.isConflicted({ remote });
-      this.log.debug({conflicted});
-
-      if (conflicted) {
-        // @TODO: Last write wins
+    
+    validationCondition:
+    if (restore) {
+      valid = true;
+      reason = 'restoration';
+      latest = localV.merge();
+      break validationCondition;
+    }
+    else if (displaced = localV.isOutOfOrder()) {  
+      reason = 'received out of order';
+      this.processOutOfOrderChange({change});
+    }
+    else if (conflicted = localV.isConflicted()) {
+      valid = this.processConflictedChange({record, change});
+      if (!valid) {
+        reason = 'concurrent writes'; 
       }
       else {
         latest = localV.merge();
       }
     }
-    
-    return { valid, reason, vclock: latest };
+    else if (stale = localV.isOutDated()) {
+      reason = 'stale';
+    }
+    else if (reason === defaultReason) {
+      valid = true;
+      reason = '';
+      latest = localV.merge();
+    }
+
+    this.log.debug({table_name, row_id, conflicted, displaced, stale});
+
+    return { valid, reason, vclock: latest, checks: { stale, displaced, conflicted } };
   }
 
-  createInsertFromObject({data, table}: { data: Record<string, any>, table: string }) {
-    this.log.silly('@createInsert...', {data});
+  createInsertFromObject({data, table_name: table}: { data: Record<string, any>, table_name: string }) {
     const columnsToInsert = Object.keys(data).join(',');
     const editable = this._synqTables![table].editable;
     const updates = Object.keys(data)
       .filter(key => editable.includes(key))
+      .map(k => `${k} = :${k}`)
+      .join(',');
+    
+    if (!updates) throw new Error('No changes availble');
+    const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
+    const insertSql = `
+      INSERT INTO ${table} (${columnsToInsert})
+      VALUES (${insertPlaceholders})
+      ON CONFLICT DO UPDATE SET ${updates}
+      RETURNING *;`;
+
+    return insertSql;
+  }
+
+  private createInsertFromSystemObject({data, table_name: table}: { data: Record<string, any>, table_name: string }) {
+    this.log.silly('@createInsert...', {data});
+    const columnsToInsert = Object.keys(data).join(',');
+    const updates = Object.keys(data)
       .map(k => `${k} = :${k}`)
       .join(',');
     
@@ -356,11 +473,31 @@ export class SynQLite {
     return insertSql;
   }
 
+  private updateLastSync({change}: {change: Change}) {
+    const metaInsert = this.db.prepare(`INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES(:name, :value)`);
+    const metaInsertMany = this.db.transaction((data: any) => {
+      for (const d of data) metaInsert.run(d);
+    });
+    metaInsertMany([
+      { name: 'last_local_sync', value: `STRFTIME('%Y-%m-%d %H:%M:%f','NOW')`},
+      { name: 'last_sync', value: change.id }
+    ]);
+  }
+
   private async applyChange({
     change,
+    restore,
     savepoint
   }: ApplyChangeParams) {
     try {
+      // Check that the changes can actually be applied
+      const changeStatus = this.preProcessChange({change, restore});
+      if (!changeStatus.valid) {
+        this.log.warn(changeStatus);
+        this.updateLastSync({change});
+        return;
+      }
+
       const table = this.synqTables![change.table_name];
       let recordData: any;
       if (change.data) {
@@ -372,14 +509,11 @@ export class SynQLite {
           throw new Error('Invalid data for insert or update');
         }
       }
-
-      // Check vector clock to determine if the change is valid
-      const changeStatus = this.validateChange(change);
-      if (!changeStatus.valid) {
-        this.log.error(changeStatus);
-        throw new Error(`Invalid change: ${changeStatus.reason}`)
+      else {
+        // There's no data so bail
+        throw new Error(`Cannot perform update with empty data:\n${JSON.stringify(change, null, 2)}`);
       }
-        
+ 
       if (!table) throw new Error(`Unable to find table ${change.table_name}`);
       this.log.silly('@applyChange', {change, table, changeStatus});
       switch(change.operation) {
@@ -387,8 +521,8 @@ export class SynQLite {
         case 'UPDATE':
           const insertSql = this.createInsertFromObject({
             data: recordData,
-            table: change.table_name
-          })
+            table_name: change.table_name
+          });
           await this.run({sql: insertSql, values: recordData});
           break;
         case 'DELETE':
@@ -398,14 +532,7 @@ export class SynQLite {
           break;
       }
 
-      const metaInsert = this.db.prepare(`INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES(:name, :value)`);
-      const metaInsertMany = this.db.transaction((data: any) => {
-        for (const d of data) metaInsert.run(d);
-      });
-      metaInsertMany([
-        { name: 'last_local_sync', value: `STRFTIME('%Y-%m-%d %H:%M:%f','NOW')`},
-        { name: 'last_sync', value: change.id }
-      ]);
+      this.updateLastSync({change});
 
       // Insert merged VClock data
       const updatedRecordMeta = this.insertRecordMeta({change, vclock: changeStatus.vclock});
@@ -413,12 +540,12 @@ export class SynQLite {
     }
     catch (error) {
       await this.rollbackTransaction({savepoint})
-      this.log.error(`Error applying change: ${error}`);
+      this.log.error(`Error applying change: ${error}. Rolled back.`);
       throw error; // Throw the error to trigger rollback
     }
   }
   
-  applyChangesToLocalDB({ changes }: { changes: Change[] }) {
+  applyChangesToLocalDB({ changes, restore = false }: { changes: Change[], restore?: boolean }) {
     this.disableTriggers();
     // Split changes into batches
     for (let i = 0; i < changes.length; i += this.synqBatchSize) {
@@ -428,7 +555,7 @@ export class SynQLite {
       const savepoint = this.beginTransaction();
       try {
         for (const change of batch) {
-          this.applyChange({change, savepoint})
+          this.applyChange({change, restore, savepoint})
         }
 
         // Commit the changes for this batch
@@ -441,7 +568,7 @@ export class SynQLite {
       }
     }
     this.enableTriggers();
-    this.log.silly(`Applied ${changes.length} change(s)`)
+    this.log.silly(`Applied ${changes.length} change(s)`);
   };
 
   private getRecordMetaInsertQuery({table, remove = false}: {table: SyncableTable, remove?: boolean}) {
@@ -449,9 +576,9 @@ export class SynQLite {
     This is kind of insane, but it works. A rundown of what's happening:
     - We're creating a trigger after a deletion (the easy part)
     - Aside from recording the changes, we also need to add record-specific metadata:
-      - table and row ID,
+      - table name and row identifier,
       - the number of times the record has been touched (including creation)
-      - the map of all changes across all devices, a Vector Clock (JSON format)
+      - the map of all changes across all devices — a Vector Clock (JSON format)
     - Getting the vector clock is tricky, partly because of SQLite limitations
       (no variables, control structures), and partly because it's possible that
       no meta exists for the record.

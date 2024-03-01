@@ -69,6 +69,7 @@ export interface SynQLiteInterface {
 
 export type ApplyChangeParams = {
   change: Change,
+  restore?: boolean,
   savepoint: string
 }
 
@@ -88,7 +89,7 @@ export type Change = {
   operation: string;
   data: string; // JSON string
   vclock: VClock;
-  modified_at: string;
+  modified: string;
 }
 
 export enum LogLevel {

@@ -16,12 +16,15 @@ export class VCompare { // @TODO: rename to VCompare
   private local: VClock;
   private isGreater = false;
   private isLess = false;
+  private isWrongOrder = false;
   private remote: VClock = {};
   private localId: string;
 
   constructor({ local, remote, localId }: VectorClockParams) {
     this.local = local;
-    this.remote = remote;
+    this.remote = typeof remote === 'string'
+      ? JSON.parse(remote)
+      : remote;
     this.localId = localId;
   }
 
@@ -55,10 +58,10 @@ export class VCompare { // @TODO: rename to VCompare
     const keys = Object.keys({...this.local, ...remote}).filter(k => k !== localId);
     for (let i = 0; i < keys.length; i++) {
       const k = keys[i];
-      const delta = Math.abs(local[k] - remote[k]);
-      if (delta > 1) return true;
+      const drift = Math.abs((local[k] ?? 0) - (remote[k] ?? 0));
+      this.isWrongOrder = drift > 1;
     }
-    return false
+    return this.isWrongOrder;
   }
 
   merge() {

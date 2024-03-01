@@ -39,13 +39,46 @@ const setupDatabase = ({
       row_id TEXT NOT NULL,
       data BLOB,
       operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE'
-      modified_at TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
     );`
   });
-
+  
   db.run({
-    sql:`CREATE INDEX IF NOT EXISTS ${db.synqPrefix}_change_modified_idx ON ${db.synqPrefix}_changes(modified_at)`
+    sql:`CREATE INDEX IF NOT EXISTS ${db.synqPrefix}_change_modified_idx ON ${db.synqPrefix}_changes(modified)`
   });
+
+  // Change *_pending is essentially a clone of *_changes used to hold items that
+  // cannot be applied yet because intermediate/preceding changes haven't been received.
+  db.run({
+    sql:`
+    CREATE TABLE IF NOT EXISTS ${db.synqPrefix}_pending (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      data BLOB,
+      operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE',
+      vclock BLOB NOT NULL,
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
+    );`
+  });
+  
+  db.run({
+    sql:`CREATE INDEX IF NOT EXISTS ${db.synqPrefix}_pending_table_row_idx ON ${db.synqPrefix}_pending(table_name, row_id)`
+  });
+
+  // Create a notice table
+  db.run({
+    sql:`
+    CREATE TABLE IF NOT EXISTS ${db.synqPrefix}_notice (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      conflict BLOB,
+      message TEXT NOT NULL,
+      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
+    );`
+  }); 
+
 
   // Create record meta table and index
   db.run({
@@ -55,7 +88,8 @@ const setupDatabase = ({
       table_name TEXT NOT NULL,
       row_id TEXT NOT NULL,
       mod INTEGER,
-      vclock BLOB
+      vclock BLOB,
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
     );`
   });
 

@@ -65,4 +65,12 @@ describe('VCompare', () => {
     const vc = new VCompare({local, remote, localId: 'n1'});
     expect(vc.isOutOfOrder()).toBeFalsy();
   });
+
+  test('should merge vclocks correctly', () => {
+    const local = {n1: 5, n2: 4};
+    const remote: any = '{"n1": 5, "n2": 4, "n3": 1}';
+    const vs = new VCompare({local, remote, localId: 'n1'});
+    const merged = vs.merge();
+    expect(merged).toMatchObject({n1: 5, n2: 4, n3: 1});
+  });
 });

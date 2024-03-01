@@ -136,12 +136,15 @@ describe('Sync Module', () => {
           values: updateData
         });
       }
-      const changelog = dbA.getChangesSinceLastSync();
-      log.debug(':O:O: changes to apply:', changelog.length);
+      const columns = [
+        'c.*','trm.vclock'
+      ];
+      const changelog = dbA.getChangesSinceLastSync({columns});
+
       expect(changelog).toBeTruthy();
 
       // Apply the changes to database B
-      dbB.applyChangesToLocalDB({changes: changelog});
+      dbB.applyChangesToLocalDB({changes: changelog, restore: true});
       
       // Compare records
       const member1A = dbA.runQuery<any[]>({sql: `SELECT * FROM member ORDER BY member_id`});
@@ -174,6 +177,8 @@ describe('Sync Module', () => {
       // Remove the databases
       removeDb({filename: dbFileA});
       removeDb({filename: dbFileB});
+
+      expect(true).toBe(true);
     });
   })
 });

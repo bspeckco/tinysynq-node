@@ -15,7 +15,7 @@ describe.only('CRUD', () => {
           row_id: 'fakeId0',
           operation: 'UPDATE',
           data: JSON.stringify({item_id: 'fakeId0', name: "Updated Item" }),
-          modified_at: sq.utils.utcNowAsISO8601(),
+          modified: sq.utils.utcNowAsISO8601(),
           vclock: {[sq.deviceId!]: 2}
         },
       ];
@@ -47,7 +47,7 @@ describe.only('CRUD', () => {
           row_id: 'fakeId1',
           operation: 'DELETE',
           data: JSON.stringify({ name: "Updated Item" }),
-          modified_at: sq.utils.utcNowAsISO8601(),
+          modified: sq.utils.utcNowAsISO8601(),
           vclock,
         },
       ];
@@ -71,7 +71,7 @@ describe.only('CRUD', () => {
           row_id: 'fakeId2',
           operation: 'INSERT',
           data: JSON.stringify({ item_id: 'fakeId2', name: "Inserted Item" }),
-          modified_at: sq.utils.utcNowAsISO8601(),
+          modified: sq.utils.utcNowAsISO8601(),
           vclock: {[sq.deviceId!]: 1}
         },
       ];

@@ -28,7 +28,7 @@ describe('Sync Module', () => {
     const db = getConfiguredDb({useDefault: true});
     const filename = db.dbName;
     const updates = [
-      { id: 1, table_name: 'items', row_id: 'fakeId0', operation: 'UPDATE', data: JSON.stringify({item_id: 'fakeId0', name: "Changed Item" }), modified_at: db.utils.utcNowAsISO8601() },
+      { id: 1, table_name: 'items', row_id: 'fakeId0', operation: 'UPDATE', data: JSON.stringify({item_id: 'fakeId0', name: "Changed Item" }), modified: db.utils.utcNowAsISO8601(), vclock: {fakeId1: 1} },
     ];
     db.applyChangesToLocalDB({changes: updates});
     const res =  db.getRecordMeta({table_name: 'items', row_id: 'fakeId0'});

@@ -1,5 +1,5 @@
 import setupDatabase from '../src/lib/index.js';
-import { Change, LogLevel, SyncableTable } from '../src/lib/types.js';
+import { Change, LogLevel, SyncableTable, VClock } from '../src/lib/types.js';
 import fs from 'fs';
 import { SynQLite } from '../src/lib/synqlite.class.js';
 import { ILogObj, ISettingsParam } from 'tslog';
@@ -71,56 +71,97 @@ export function getRandom(size: number) {
   return Math.floor(Math.random() * size);
 }
 
-enum ChangeOperation {
+enum SynqOperation {
   'INSERT' = 'INSERT',
   'UPDATE' = 'UPDATE',
   'DELETE' = 'DELETE'
 }
 
-type Operation = keyof typeof ChangeOperation; 
-
-function generateChangeData(
-  {db, operation, table_name, row_id, change_id}:
-  {db: SynQLite, operation: Operation, table_name: string, row_id: string, change_id: number})
-{
-  const id = change_id;
-  operation = operation || 'INSERT';
-  return {
-    id, 
-    table_name,
-    row_id,
-    operation,
-    data: JSON.stringify({item_id: row_id, name: `${operation.toLowerCase()} item ${row_id}` }),
-    modified_at: db.utils.utcNowAsISO8601()
-  }
+type Operation = keyof typeof SynqOperation;
+type GetRandomReturn<T> = {
+  id_col: string;
+  table_name: string;
+  data: T;
 }
 
+/**
+ * Get a specific or random record
+ * 
+ * Retrieves either the specified `opts.row_id` from `opts.table_name`
+ * or a random record from `opts.table_name`.
+ * 
+ * @param {Object} opts - configure behaviour
+ * @param {SynQLite} opts.sq - SynQLite instance
+ * @param {string} opts.table_name - name of the table from which to grab a record 
+ * @param {string} opts.row_id - identifier of the table row 
+ * @param {boolean} opts.select - whether or not to select a random record 
+ * @returns 
+ */
+export function getRecordOrRandom<T>({sq, table_name, row_id, select = true}: any): GetRandomReturn<T | any> | never {
+  // Find the referenced item
+  let linkedRecord;
+  if (row_id) {
+    linkedRecord = sq.getById({table_name, row_id});
+  }
+
+  // If it doesn't exist, pick a random one
+  if (select && !linkedRecord) {
+    linkedRecord = sq.runQuery({
+      sql: `SELECT * FROM ${table_name} ORDER BY RANDOM() LIMIT 1 `
+    })[0];
+  }
+  if (select && !linkedRecord) throw new Error(`No records found in table: ${table_name}`);
+  const id_col = sq.getTableIdColumn({table_name});
+  return {id_col, table_name, data: linkedRecord};
+}
+
+type ColumnName = string;
+type TableName = string;
+type GenerateRowDataOptions = {
+  sq: SynQLite;
+  operation: Operation;
+  table_name: string;
+  row_id: string;
+  values: any;
+  columns: any;
+  target?: any;
+  constraints?: Map<ColumnName, TableName> // specify columns with foreign key constraints
+}
 function generateRowData(
-  { sq, operation, table_name, row_id, values, columns}:
-  { sq: SynQLite, operation: Operation, table_name: string, row_id: string, values: any, columns: any})
+  {sq, operation, table_name, row_id, values, columns, constraints, target}: GenerateRowDataOptions
+)
 {
   operation = operation || 'INSERT';
 
-  const data: any = sq
-    // Get record as template.
-    ? sq.runQuery({sql: `SELECT * FROM ${table_name} ORDER BY RANDOM() LIMIT 1`})[0]
-    : {};
+  let updated: any = {};
+  if (target) {
+    updated = sq.getById({table_name, row_id: target}) || {};
+  }
+  else {
+    updated = sq.runQuery({sql: `SELECT * FROM ${table_name} ORDER BY RANDOM() LIMIT 1`})[0] || {};
+  }
   
   // console.log('<<generateRowData>>', {data, columns, values});
   for (const column of columns) {
     const col = column.name;
     if (col === 'id' || col.endsWith('_id')) {
       // Updates and deletes need an existing record.
-      data[col] = operation === ChangeOperation.INSERT ? row_id : data[column.name];
+      if (constraints?.has(col)) {
+        const t = constraints.get(col)!;
+        const record = getRecordOrRandom({sq, table_name: t, row_id: updated[col]});
+        updated[col] = record.data[record.id_col];
+      }
+      else {
+        updated[col] = operation === SynqOperation.INSERT ? row_id : updated[column.name];
+      }
     }
     else if (values && values[col] !== 'undefined') {
-      data[col] = values[col];
+      updated[col] = values[col];
     }
   }
-  console.log
   
-  // modified_at: db.utils.utcNowAsISO8601()
-  return data;
+  // modified: db.utils.utcNowAsISO8601()
+  return updated;
 }
 
 export function getRandomValue({columnType}: {columnType: string}) {
@@ -133,8 +174,17 @@ export function getRandomValue({columnType}: {columnType: string}) {
       return getRandom(2);
     case 'DATE':
     case 'TIMESTAMP':
-      return new Date().toISOString().replace(/[TZ]/g, '');
+      return getRandomDateTime();
   }
+}
+
+export function getRandomDateTime(opts?: {asString?: boolean}) {
+  const {asString = true} = opts || {};
+  const time = Date.now();
+  const modified = time - Math.floor(Math.random() * 1000000);
+  const date = new Date(modified);
+  if (!asString) return date;
+  return date.toISOString().replace('Z', ''); 
 }
 
 export function getTableIdColumn({db, table}: {db: SynQLite, table: string}) {
@@ -159,9 +209,19 @@ export function getDefaultColumnValue({columnData, columnName, allowEmpty = true
   return val;
 }
 
+type generateChangesForTableOptions = {
+  sq: SynQLite;
+  table: string;
+  origin: string;
+  operation?: Operation;
+  operations?: Operation[];
+  total?: number;
+  constraints?: Map<string, string>;
+  fixed?: Record<string, any>;
+  target?: any;
+}
 export function generateChangesForTable(
-  {sq, table, origin, operation, total = 1}:
-  {sq: SynQLite, table: string, origin: string, operation?: Operation, total?: number}
+  {sq, table, origin, operation, constraints, fixed, operations, target, total = 1}: generateChangesForTableOptions
 ) {
   // Get table schema
   const columns = sq.runQuery({
@@ -170,20 +230,6 @@ export function generateChangesForTable(
 
   if (!columns.length) throw new Error(`Failed to get column data for ${table}`);
 
-  const columnUpdates: any = {};
-  const editableColumns = sq.synqTables![table].editable;
-
-  for (const col of columns) {
-    if (editableColumns.includes(col.name)) {
-      let val = getDefaultColumnValue({
-        columnData: editableColumns[col.name],
-        columnName: col.name
-      }) || getRandomValue({columnType: col.type});
-      columnUpdates[col.name] = val;
-    }
-  }
-  console.log({columns, editableColumns, columnUpdates})
-
   // Get highest existing change ID
   const highestId = sq.runQuery({
     sql: `SELECT id FROM ${sq.synqPrefix}_changes ORDER BY id DESC LIMIT 1`
@@ -191,15 +237,31 @@ export function generateChangesForTable(
   if (highestId === 0) console.warn('WARNING: highestId === 0');
 
   const changes: Change[] = [];
-  const operations = ['INSERT', 'UPDATE', 'DELETE'];
+  operations = operations || ['INSERT', 'UPDATE', 'DELETE'];
   let currentId = highestId + 1;
   let created = 0;
   while (created < total) {
-    const row_id = `fake${currentId}`;
+    const columnUpdates: any = {};
+    const editableColumns = sq.synqTables![table].editable;
+  
+    // Why was this outside the loop???
+    for (const col of columns) {
+      if (fixed && fixed[col.name] !== undefined) {
+        columnUpdates[col.name] = fixed[col.name];
+      }
+      else if (editableColumns.includes(col.name)) {
+        let val = getDefaultColumnValue({
+          columnData: editableColumns[col.name],
+          columnName: col.name
+        }) || getRandomValue({columnType: col.type});
+        columnUpdates[col.name] = val;
+      }
+    }
+
+    const row_id = target ?? `fake${currentId}`;
     const { randTable, randCol, randVal } = getRandomColumnUpdate(
       { editableTables: { [table]: columnUpdates } }
     );
-    // console.log({randTable, randCol, randVal, editableTables})
     columnUpdates[randCol] = randVal;
     const randOp = operation || operations[getRandom(operations.length)];
     const rowData: any = generateRowData({
@@ -208,11 +270,14 @@ export function generateChangesForTable(
       row_id,
       values: columnUpdates,
       operation: randOp as Operation,
-      columns
+      columns,
+      constraints,
+      target,
     });
     const idCol = getTableIdColumn({db: sq, table: randTable});
     if (!idCol) throw new Error('Invalid ID column: ' + idCol);
 
+    console.log({idCol})
     const recordMeta = sq.getRecordMeta({
       table_name: randTable,
       row_id: rowData[idCol]
@@ -230,14 +295,13 @@ export function generateChangesForTable(
       operation: randOp as Operation,
       data: JSON.stringify(rowData),
       vclock,
-      modified_at: sq.utils.utcNowAsISO8601()
+      modified: sq.utils.utcNowAsISO8601()
     };
     changes.push(change);
     currentId++;
     created++;
   }
-  
-  
+ 
   return changes;
 }
 
@@ -261,4 +325,58 @@ export function getRandomColumnUpdate({editableTables}: {editableTables: Editabl
     columnName: randCol
   });
   return { randVal, randCol, randTable };
+}
+
+type AlterRecordMetaBase = {
+  sq: SynQLite,
+  table_name: string;
+  row_id: string;
+  updates: {
+    modified?: Date;
+    vclock?: VClock;
+  }
+}
+
+type AlterRecordMetaOptions = AlterRecordMetaBase & (
+  {
+    updates: {
+      modified: Date;
+      vclock?: VClock;
+    }
+  } | {
+    updates: {
+      modified?: Date;
+      vclock: VClock;
+    }
+  }
+)
+
+export function alterRecordMeta({sq, table_name, row_id, updates}: AlterRecordMetaOptions) {
+  const values: any = {
+    table_name,
+    row_id,
+  };
+  const setStatements: string[] = [];
+  Object.keys(updates).forEach(k => {
+    setStatements.push(`${k} = :${k}`);
+    if (k === 'modified') {
+      values[k] = updates.modified!.toISOString(); 
+    }
+    else if (k === 'vclock') {
+      values[k] = JSON.stringify(updates.vclock);
+    }
+  });
+
+  //const params = [modified, vclock].filter(p => !!p).map(p => `${p}`).join(',');
+
+  const sql = `
+  UPDATE ${sq.synqPrefix}_record_meta
+  SET ${setStatements.join(',')}
+  WHERE table_name = :table_name
+  AND row_id = :row_id
+  RETURNING *`;
+  console.log({sql, values})
+
+  const res = sq.runQuery({sql, values});
+  return res;
 }
