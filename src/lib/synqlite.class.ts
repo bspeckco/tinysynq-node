@@ -62,7 +62,7 @@ export class SynQLite {
    * 
    * @public
    */
-  utils: Utils = {
+  readonly utils: Utils = {
     strtimeAsISO8601,
     nowAsISO8601: strtimeAsISO8601,
     utcNowAsISO8601: (): string => {
