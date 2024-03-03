@@ -5,7 +5,7 @@ describe.only('CRUD', () => {
   describe.only('applyChangesToLocalDB', () => {
     test('UPDATE is applied correctly', () => {
       const sq = getConfiguredDb({useDefault: true});
-      const filename = sq.dbName;
+      const filePath = sq.dbPath;
 
       // Simulate changes
       const changes = [
@@ -24,13 +24,13 @@ describe.only('CRUD', () => {
       // Verify changes were applied
       const item:any = sq.runQuery<any[]>({sql: 'SELECT * FROM items WHERE item_id = ?', values: ['fakeId0']})[0];
       //console.log(item);
-      removeDb({filename});
+      removeDb({filePath});
       expect(item.name).toBe('Updated Item');
     });
 
     test.only('DELETE is applied correctly', () => {
       const sq = getConfiguredDb({useDefault: true});
-      const filename = sq.dbName;
+      const filePath = sq.dbPath;
 
       const existing:any = sq.db.prepare('SELECT * FROM items WHERE item_id = ?').get('fakeId1');
       expect(existing).toBeTruthy();
@@ -56,13 +56,13 @@ describe.only('CRUD', () => {
 
       // Verify item was deleted were applied
       const deleted:any = sq.db.prepare('SELECT * FROM items WHERE item_id = ?').get('fakeId1');
-      removeDb({filename});
+      removeDb({filePath});
       expect(deleted).toBeFalsy();
     });
 
     test('INSERT is applied correctly', () => {
       const sq = getConfiguredDb({useDefault: true});
-      const filename = sq.dbName;
+      const filePath = sq.dbPath;
       // Simulate INSERT
       const changes = [
         {
@@ -81,7 +81,7 @@ describe.only('CRUD', () => {
       // Verify item was deleted were applied
       const inserted:any = sq.db.prepare('SELECT * FROM items WHERE item_id = ?').get('fakeId2');
 
-      removeDb({filename});
+      removeDb({filePath});
       expect(inserted).toBeTruthy();
       expect(inserted.item_id).toBe('fakeId2');
     });

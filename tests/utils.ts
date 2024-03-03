@@ -10,7 +10,7 @@ import { testCreateTableItems, testInsertRowItem } from './test-data/items.data.
 const logLevel = LogLevel.Warn;
 
 type ConfigureParams = {
-  filename?: string;
+  filePath?: string;
   prefix?: string;
   tables?: SyncableTable[];
   batchSize?: number;
@@ -27,11 +27,11 @@ export function getNanoId() {
 
 export function getConfiguredDb(configData?: {config?: ConfigureParams, useDefault?: boolean}): SynQLite {
   const { config, useDefault = false } = (configData || {});
-  const filename = getRandomDbName();
-  const prefix = (filename.split('/').pop() || '').split('.')[0];
+  const filePath = getRandomdbPath();
+  const prefix = (filePath.split('/').pop() || '').split('.')[0];
   const defaultConfig = {
     wal: true,
-    filename,
+    filePath,
     tables: [
       {name: 'items', id: 'item_id', editable: ['name']},
     ],
@@ -39,7 +39,7 @@ export function getConfiguredDb(configData?: {config?: ConfigureParams, useDefau
     preInit: config?.preInit || (useDefault ? testCreateTableItems : []),
     postInit: config?.postInit || (useDefault ? testInsertRowItem : []),
     logOptions: {
-      name: filename,
+      name: filePath,
       minLevel: logLevel
     },
     debug: config?.debug
@@ -52,15 +52,15 @@ export function wait({ms = 100}: {ms: number}) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function getRandomDbName() {
+export function getRandomdbPath() {
   return `/tmp/tst_${Math.ceil(Math.random() * 10000)}.db`
 }
 
-export function removeDb({filename}: {filename: string}) {
+export function removeDb({filePath}: {filePath: string}) {
   try {
-    fs.unlinkSync(filename);
-    fs.unlinkSync(filename+'-shm');
-    fs.unlinkSync(filename+'-wal'); 
+    fs.unlinkSync(filePath);
+    fs.unlinkSync(filePath+'-shm');
+    fs.unlinkSync(filePath+'-wal'); 
   }
   catch(err) {
     // File is already gone

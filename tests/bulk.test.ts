@@ -3,7 +3,7 @@ import { LogLevel } from '../src/lib/types.js';
 import { nanoid } from 'nanoid';
 import fs from 'fs';
 import { Logger } from 'tslog';
-import { getConfiguredDb, getRandom, getRandomColumnUpdate, removeDb } from './utils.js';
+import { getConfiguredDb, getRandomColumnUpdate, removeDb } from './utils.js';
 
 const ID_SIZE = 16; // 1000 years to reach 1% probability of collision at 1000 IDs per second
 const logLevel = LogLevel.Warn;
@@ -43,8 +43,8 @@ describe('Sync Module', () => {
         ORDER BY RANDOM()
         LIMIT 1
       `;
-      const memberVals = [];
-      const messageVals = [];
+      const memberVals: any[] = [];
+      const messageVals: any[] = [];
       for (let i = 0; i < 20; i++) {
         const id = nanoid(ID_SIZE);
         memberVals.push({
@@ -66,7 +66,7 @@ describe('Sync Module', () => {
       const dbFileB = `/tmp/test${now}B.db`;
       const dbA = getConfiguredDb({
         config: {
-          filename: dbFileA,
+          filePath: dbFileA,
           tables: [
             {name: 'member', id: 'member_id', editable: ['member_name', 'member_status']},
             {name: 'message', id: 'message_id', editable: ['message_text']},
@@ -94,7 +94,7 @@ describe('Sync Module', () => {
       fs.copyFileSync(dbFileA, dbFileB);
       const dbB = getConfiguredDb({
         config: {
-          filename: dbFileB,
+          filePath: dbFileB,
           tables: [
             {name: 'member', id: 'member_id', editable: ['member_name', 'member_status']},
             {name: 'message', id: 'message_id', editable: ['message_text']},
@@ -175,8 +175,8 @@ describe('Sync Module', () => {
       console.log({statA, statB});
 
       // Remove the databases
-      removeDb({filename: dbFileA});
-      removeDb({filename: dbFileB});
+      removeDb({filePath: dbFileA});
+      removeDb({filePath: dbFileB});
 
       expect(true).toBe(true);
     });

@@ -1,5 +1,5 @@
 import DB from 'better-sqlite3'
-import { ApplyChangeParams, Change, LogLevel, SynQLiteOptions, SyncableTable, VClock } from './types.js';
+import { ApplyChangeParams, Change, LogLevel, QueryParams, SynQLiteOptions, SyncableTable, TableNameRowParams, VClock } from './types.js';
 import { Logger, ILogObj } from 'tslog';
 import { nanoid } from 'nanoid';
 import { VCompare } from './vcompare.class.js';
@@ -19,18 +19,50 @@ type PreProcessChangeResult = {
   checks: Record<string, boolean>
 }
 
+/**
+ * Basic utilities, mainly date-oriented.
+ */
+export type Utils = {
+  strtimeAsISO8601: string,
+  nowAsISO8601: string,
+  utcNowAsISO8601: () => string
+}
+
+/**
+ * Parameters for retrieving table's ID column.
+ * 
+ * @public
+ */
+export type GetTableIdColumnParams = {
+  table_name: string;
+}
+
+/**
+ * The main class for managing SQLite3 synchronisation.
+ * 
+ * @remarks
+ * Expects SQLite3 version \>=3.45.1
+ * 
+ * @public
+ */
 export class SynQLite {
   private _db: any;
-  private _dbName: string;
+  private _dbPath: string;
   private _deviceId: string | undefined;
-  private _synqDbId?: string;
   private _synqPrefix?: string;
   private _synqTables?: Record<string, SyncableTable>;
   private _synqBatchSize: number = 20;
   private _wal = true;
   private log: Logger<ILogObj>;
 
-  utils = {
+  /**
+   * Basic Helpers.
+   * 
+   * @TODO move to a separate file.
+   * 
+   * @public
+   */
+  utils: Utils = {
     strtimeAsISO8601,
     nowAsISO8601: strtimeAsISO8601,
     utcNowAsISO8601: (): string => {
@@ -38,75 +70,132 @@ export class SynQLite {
     }
   }
 
-  constructor(initData: SynQLiteOptions) {
-    if (!initData.filename && !initData.sqlite3) {
-      throw new Error('No DB filename or connection provided');
+  /**
+   * Configure new SynQLite instance.
+   * 
+   * @param opts - Configuration options
+   */
+  constructor(opts: SynQLiteOptions) {
+    if (!opts.filePath && !opts.sqlite3) {
+      throw new Error('No DB filePath or connection provided');
     }
     const _synqTables: Record<string, SyncableTable> = {};
-    initData.tables.forEach(t => {
+    opts.tables.forEach(t => {
       _synqTables[t.name] = t;
     })
-    this._dbName = initData.filename || '';
-    this._db = initData.sqlite3 || undefined;
-    this._synqPrefix = initData.prefix?.trim().replace(/[^a-z0-9]+$/i, '');
+    this._dbPath = opts.filePath || '';
+    this._db = opts.sqlite3 || undefined;
+    this._synqPrefix = opts.prefix?.trim().replace(/[^a-z0-9]+$/i, '');
     this._synqTables = _synqTables;
-    this._synqBatchSize = initData.batchSize || this._synqBatchSize;
-    this._wal = initData.wal ?? false;
+    this._synqBatchSize = opts.batchSize || this._synqBatchSize;
+    this._wal = opts.wal ?? false;
     this.log = new Logger({
       name: 'synqlite-node',
       minLevel: LogLevel.Debug,
       type: 'json',
       maskValuesOfKeys: ['password', 'encryption_key'],
       hideLogPositionForProduction: true,
-      ...(initData.logOptions || {})
+      ...(opts.logOptions || {})
     });
 
     if (!this.db) {
-      this._db = new DB(this.dbName);
+      this._db = new DB(this.dbPath);
       this.db.pragma('journal_mode = WAL');
     }
   }
 
+  /**
+   * better-sqlite3 instance (See {@link https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md | BetterSqlite3})
+   */
   get db() {
     return this._db;
   }
 
-  get dbName() {
-    return this._dbName;
+  /**
+   * Path to DB file
+   * 
+   * @example
+   * 
+   * `./app.db` or `/tmp/app.db`
+   */
+  get dbPath() {
+    return this._dbPath;
   }
 
+  /**
+   * Automatically generated ID for device's DB instance.
+   * 
+   * @remarks
+   * 
+   * This ID is used by the sync protocol to identify the database.
+   * One it is generated once during setup and does not change. The
+   * value is stored in the `_meta` table (`meta_name='device_id'`).
+   * __Do not edit this value; doing so would corrupt synchronisation__.
+   */
   get deviceId() {
     return this._deviceId;
   }
 
   /**
-   * Is retrieved from an existing DB, or 
-   * generated and set if one isn't assigned yet.
+   * Alias for {@link SynQLite.deviceId}.
    */
   get synqDbId() {
-    return this._synqDbId;
+    return this._deviceId;
   }
 
+  /**
+   * The prefix used for SynQLite's tables.
+   * 
+   * @defaultValue `synqlite`
+   */
   get synqPrefix() {
     return this._synqPrefix;
   }
 
+  /**
+   * Object containing {@link SyncableTable}s, keyed by table name.
+   * 
+   * @remarks
+   * 
+   * A {@link SyncableTable} structure is never modified. SynQLite maintains 
+   * its own tables and triggers for tracking and responding to changes.
+   * 
+   * @returns Record\<string, SyncableTable\>
+   */
   get synqTables() {
     return this._synqTables;
   }
 
+  /**
+   * Number of records to process in each batch when syncing changes. 
+   */
   get synqBatchSize() {
     return this._synqBatchSize;
   }
 
+  /**
+   * Enable or disable WAL mode.
+   * 
+   * @defaultValue true
+   */
   get wal() {
     return this._wal;
   }
 
-  getTableIdColumn({table_name}: {table_name: string}) {
+  /**
+   * Get the column used as identifier for the {@link SyncableTable}.
+   * 
+   * @param params - Details of table for which to retrieve ID column.
+   * @returns Column name
+   */
+  getTableIdColumn(params: GetTableIdColumnParams) {
+    const {table_name} = params;
     return this.synqTables![table_name]?.id as string;
   }
 
+  /**
+   * If not already set, generates and sets deviceId.
+   */
   setDeviceId() {
     // Set the device ID
     let existing: any;
@@ -131,21 +220,17 @@ export class SynQLite {
     this._deviceId = existing?.meta_value;
   }
 
-  runQuery<T = any>({sql, values}: {sql: string, values?: any}): T {
-    const quid = Math.ceil(Math.random() * 1000000);
-    this.log.debug('@runQuery', {quid, sql, values});
-    try {
-      const result = this.db.prepare(sql).all(values || []);
-      this.log.debug({quid, result});
-      return result;
-    }
-    catch(err: any) {
-      this.log.error(quid, err);
-      return err;
-    }
-  }
-
-  run<T>({sql, values}: {sql: string, values?: any}): T {
+  /**
+   * Run an operation against the DB
+   * 
+   * @remarks
+   * This method does not return any records, only the result of the operation.
+   * 
+   * @param params - The SQL query and optionally any values.
+   * @returns
+   */
+  run<T>(params: QueryParams): T {
+    const {sql, values} = params;
     const quid = Math.ceil(Math.random() * 1000000);
     this.log.debug('@run', quid, sql, values, '/');
     try {
@@ -159,9 +244,19 @@ export class SynQLite {
     }
   }
 
-  runMany<T>({sql, values}: {sql: string, values: any[]}) {
+  /**
+   * Run multiple operations against the DB
+   * 
+   * @remarks
+   * This method does not return any records.
+   * 
+   * @param params - The SQL query and optionally an array of arrays or key/value pairs
+   * @returns Undefined or an error, if one occurred
+   */
+  runMany(params: {sql: string, values: any[]}) {
+    const {sql, values} = params;
     const quid = Math.ceil(Math.random() * 1000000);
-    this.log.debug('@run', quid, sql, values, '/');
+    this.log.debug('@runMany', quid, sql, values, '/');
     try {
       const query = this.db.prepare(sql);
       for (const v of values) {
@@ -175,7 +270,33 @@ export class SynQLite {
     }
   }
 
-  getDeviceId() {
+  /**
+   * Run an operation against the DB
+   * 
+   * @param params - The SQL query and optionally any values
+   * @returns Array of records returned from the database
+   */
+  runQuery<T = any>(params: QueryParams): T {
+    const {sql, values} = params;
+    const quid = Math.ceil(Math.random() * 1000000);
+    this.log.debug('@runQuery', {quid, sql, values});
+    try {
+      const result = this.db.prepare(sql).all(values || []);
+      this.log.debug({quid, result});
+      return result;
+    }
+    catch(err: any) {
+      this.log.error(quid, err);
+      return err;
+    }
+  }
+
+  /**
+   * Returns the current device's unique SynQLite ID.
+   * 
+   * @returns The device's assigned ID.
+   */
+  getDeviceId(): string {
     if (this._deviceId) return this._deviceId;
     const res = this.runQuery<any[]>({
       sql:`
@@ -185,7 +306,16 @@ export class SynQLite {
     return res[0].meta_value;
   }
 
-  getLastSync() {
+  /**
+   * Returns an ISO8601 formatted date and time of the last successful local sync.
+   * 
+   * @remarks
+   * 
+   * A "local sync" is the process of sending local changes to the remote hub.
+   * 
+   * @returns The time of the last sync.
+   */
+  getLastSync(): string {
     const res = this.runQuery<any[]>({
       sql:`
         SELECT meta_value FROM ${this.synqPrefix}_meta
@@ -195,13 +325,25 @@ export class SynQLite {
     return res[0]?.meta_value;
   }
   
-  getChangesSinceLastSync(data?: {lastSync?: string, columns?: string[]}): Change[] {
-    let lastLocalSync: string = data?.lastSync || this.getLastSync();
-    let { columns = ['*'] } = data || {};
-    this.log.debug('@getChangesSinceLastSync', lastLocalSync);
+  /**
+   * Returns matching {@link Change} objects since the last local sync.
+   * 
+   * @remarks
+   * 
+   * If `lastLocalSync` is empty, all changes are returned.
+   * 
+   * @param params - Object containing retrieval parameters.
+   * @returns An array of {@link Change} objects.
+   */
+  getChanges(params?: {lastLocalSync?: string, columns?: string[]}): Change[] {
+    let lastLocalSync: string = params?.lastLocalSync || this.getLastSync();
+    let { columns = [] } = params || {};
+    this.log.debug('@getChanges', lastLocalSync);
   
     let where: string = '';
-    let columnSelection = columns.join(','); // @TODO: This is UGLY and UNSAFE
+    let columnSelection = columns
+      .map(c => c.replace(/[^*._a-z0-9]+/gi, ''))
+      .join(',') || '*';
   
     if (lastLocalSync) {
       where = 'WHERE c.modified > ?'
@@ -222,6 +364,34 @@ export class SynQLite {
     return this.runQuery<Change[]>({sql, values});
   };
 
+  /**
+   * Returns {@link Change} objects since the last local sync.
+   * 
+   * @remarks
+   * 
+   * If `lastLocalSync` is empty, all changes are returned.
+   * 
+   * @param params - Object containing retrieval parameters.
+   * @returns An array of {@link Change} objects.
+   */
+  getChangesSinceLastSync(params?: {columns?: string[]}): Change[] {
+    let lastLocalSync = this.getLastSync() || undefined;
+    return this.getChanges({...params, lastLocalSync});
+  };
+
+  /**
+   * Writes debug mode value (true) which disables recording 
+   * of operations on syncable tables.
+   * 
+   * @remarks
+   * 
+   * The value set by this method is checked by dedicated triggers.
+   * If the value is `1`, the active trigger writes the data to the
+   * `*_dump` table. It's worth purging the table data once done 
+   * with debugging.
+   * 
+   * @returns Result of the operation.
+   */
   enableDebug() {
     return this.run({
       sql: `
@@ -231,6 +401,14 @@ export class SynQLite {
     });
   }
 
+  /**
+   * Writes debug mode value (false) which disables recording 
+   * of operations on syncable tables.
+   * 
+   * @see {@link SynQLite.enableDebug} for more details.
+   * 
+   * @returns Result of the operation.
+   */
   disableDebug() {
     return this.run({
       sql: `
@@ -239,7 +417,23 @@ export class SynQLite {
       RETURNING *;`
     });
   }
+
+  /**
+   * Empties the `*_dump` table.
+   * 
+   * @see {@link SynQLite.enableDebug} for more details.
+   */
+  clearDebugData() {
+    this.run({sql: `DELETE FROM ${this._synqPrefix}_dump`});
+    this.run({sql: `UPDATE SQLITE_SEQUENCE SET seq = 0 WHERE name = ${this._synqPrefix}_dump`});
+  }
   
+  /**
+   * Writes value (true) which determines whether or not triggers on syncable
+   * tables are executed.
+   * 
+   * @returns Result of operation.
+   */
   private enableTriggers() {
     return this.run({
       sql: `
@@ -248,6 +442,12 @@ export class SynQLite {
     });
   }
 
+  /**
+   * Writes value (true) which determines whether or not triggers on syncable
+   * tables are executed.
+   * 
+   * @returns Result of operation.
+   */
   private disableTriggers() {
     return this.run({
       sql: `
@@ -273,7 +473,14 @@ export class SynQLite {
     return this.run({sql});
   }
 
-  private getRecord({table_name, row_id}: {table_name: string, row_id: any}) {
+  /**
+   * Retrieves a single record.
+   * 
+   * @param params - Object containing table/row parameters. 
+   * @returns 
+   */
+  private getRecord<T>(params: TableNameRowParams): T|any {
+    const {table_name, row_id} = params;
     const idCol = this.getTableIdColumn({table_name: table_name});
     const sql = `SELECT * FROM ${table_name} WHERE ${idCol} = ?`;
     const res = this.runQuery({sql, values: [row_id]});
@@ -281,7 +488,19 @@ export class SynQLite {
     return res[0];
   }
 
-  getById<T>({table_name, row_id}: {table_name: string, row_id: any}): T | any {
+  /**
+   * Retrieves a single record by it's ID.
+   * 
+   * @remarks
+   * 
+   * The column used to identify the record is according to the {@link SyncableTable}
+   * that was provided in {@link SynQLiteOptionsBase.tables} at instantiation.
+   * 
+   * @param params - Object containing table/row parameters. 
+   * @returns 
+   */
+  getById<T>(params: TableNameRowParams): T | any {
+    const{table_name, row_id} = params;
     return this.getRecord({table_name, row_id});
   }
 
@@ -306,7 +525,15 @@ export class SynQLite {
     });
   }
 
-  getRecordMeta({table_name, row_id}: {table_name: string, row_id: string}) {
+  /**
+   * Get associated meta data (including `vclock`) for record.
+   * 
+   * @param params - Object containing table/row parameters.
+   * 
+   * @returns Object containing row data from `*_record_meta`.
+   */
+  getRecordMeta(params: {table_name: string, row_id: string}) {
+    const {table_name, row_id} = params;
     const sql = `
     SELECT *
     FROM ${this.synqPrefix}_record_meta
@@ -316,6 +543,12 @@ export class SynQLite {
     return res;
   }
 
+  /**
+   * Returns changes that couldn't be applied yet because they
+   * were received out of sequence.
+   * 
+   * @returns Array of pending changes.
+   */
   getPending() {
     const sql = `
     SELECT *
@@ -329,7 +562,7 @@ export class SynQLite {
   /**
    * Creates new pending record to be applied later.
    * 
-   * @param param0 
+   * @param opts - Options for processing out-of-order change
    * @returns Newly created pending record
    */
   private processOutOfOrderChange({change}: {change: Change}) {
@@ -349,7 +582,7 @@ export class SynQLite {
   /**
    * Determines whether to treat conflicted change as valid or invalid.
    * 
-   * @param param0 
+   * @param opts - Options for processing concurrent change
    * @returns boolean 
    */
   private processConflictedChange<T>({ record, change }: {record: T|any, change: Change}): boolean {
@@ -368,9 +601,9 @@ export class SynQLite {
   }
 
   /**
-   * Checks for issues with incoming change to be applied.
+   * Checks for and handles issues with incoming change to be applied.
    * 
-   * @returns 
+   * @returns Result of pre-processing.
    */
   private preProcessChange(
     {change, restore}: PreProcessChangeOptions
@@ -433,6 +666,19 @@ export class SynQLite {
     return { valid, reason, vclock: latest, checks: { stale, displaced, conflicted } };
   }
 
+  /**
+   * Creates an insert query based on the syncable table name and data provided.
+   * 
+   * @remarks
+   * 
+   * This method is specifically for tables that have been registerd as syncable
+   * by passing them in as a {@link SyncableTable} at instantiation.
+   * 
+   * @see {@link SyncableTable} for more information.
+   * 
+   * @param param0 - Parameters from which to create the query.
+   * @returns A SQL query string.
+   */
   createInsertFromObject({data, table_name: table}: { data: Record<string, any>, table_name: string }) {
     const columnsToInsert = Object.keys(data).join(',');
     const editable = this._synqTables![table].editable;
@@ -452,6 +698,13 @@ export class SynQLite {
     return insertSql;
   }
 
+  /**
+   * Creates an insert query based on the system table name and data provided.
+   *  
+   * @param param0 - Parameters from which to create the query.
+   * 
+   * @returns A SQL query string. 
+   */
   private createInsertFromSystemObject({data, table_name: table}: { data: Record<string, any>, table_name: string }) {
     this.log.silly('@createInsert...', {data});
     const columnsToInsert = Object.keys(data).join(',');
@@ -461,9 +714,6 @@ export class SynQLite {
     
     if (!updates) throw new Error('No changes availble');
     const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
-    // This really needs to be an INSERT ... ON CONFLICT ...
-    // To do so requires knowing the table columns beforehand AND
-    // which ones are editable
     const insertSql = `
       INSERT INTO ${table} (${columnsToInsert})
       VALUES (${insertPlaceholders})

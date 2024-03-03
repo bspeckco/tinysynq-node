@@ -15,6 +15,10 @@
     "skipLibCheck": true,
     "strict": true,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+
+    /* For API Extractor */
+    "declaration": true,
+    "declarationMap": true
   }
 }

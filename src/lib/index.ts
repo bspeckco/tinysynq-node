@@ -1,34 +1,28 @@
 import { Logger } from "tslog";
-import { SYNQLITE_BATCH_SIZE, SYNQLITE_PREFIX } from "./constants.js";
 import { SynQLite } from "./synqlite.class.js";
 import { SynQLiteOptions, SyncableTable } from "./types.js";
 
-const setupDatabase = ({
-  filename,
-  sqlite3,
-  prefix = SYNQLITE_PREFIX,
-  tables,
-  batchSize = SYNQLITE_BATCH_SIZE,
-  preInit,
-  postInit,
-  logOptions,
-  debug,
-}: SynQLiteOptions) => {
-
-  if (!tables?.length) throw new Error('Syncable table data required');
-
-  const log = new Logger({ name: 'synqlite-setup', ...logOptions});
-  const db = new SynQLite({
-    filename,
-    sqlite3,
-    prefix,
+/**
+ * Returns a configured instance of SynQLite
+ * 
+ * @param config - Configuration object 
+ * @returns SynQLite instance
+ * 
+ * @public
+ */
+const setupDatabase = (config: SynQLiteOptions) => {
+  const {
     tables,
-    batchSize,
     preInit,
     postInit,
     logOptions,
     debug,
-  });
+  } = config;
+
+  if (!tables?.length) throw new Error('Syncable table data required');
+
+  const log = new Logger({ name: 'synqlite-setup', ...logOptions});
+  const db = new SynQLite(config);
 
   const getRecordMetaInsertQuery = ({table, remove = false}: {table: SyncableTable, remove?: boolean}) => {
     /* 
@@ -49,7 +43,7 @@ const setupDatabase = ({
     - Now we select from db.union and limit to 1 result. If a record exists
       then we get that record. If not, we get the values ready for insertion.
     - Finally, if there's a conflict on PRIMAY KEY or UNIQUE contraints, we update
-      only the columns configured as  editable.
+      only the columns configured as editable.
     */
     const version = remove ? 'OLD' : 'NEW';
     const sql = `
@@ -232,6 +226,8 @@ const setupDatabase = ({
         VALUES ('${table.name}', 'AFTER_UPDATE', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
       END;`
     });
+
+    /* END OF DEBUG TRIGGERS */
   }
 
   // Create a change-tracking table and index

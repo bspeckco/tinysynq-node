@@ -52,7 +52,7 @@ describe('sync', () => {
       sq.runQuery({sql: insertSql, values: entry});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
-      removeDb({ filename: sq.dbName });
+      removeDb({ filePath: sq.dbPath });
       expect(meta.vclock).toMatchObject(JSON.stringify({[deviceId]: 2}));
     });
 
@@ -78,13 +78,13 @@ describe('sync', () => {
       await wait({ms: 100});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
-      removeDb({ filename: sq.dbName });
+      removeDb({ filePath: sq.dbPath });
       expect(meta.vclock).toMatchObject(JSON.stringify({[localId]: 1, [remoteId]: 1}));
     }); 
 
     test('should increment a local ID in vclock', () => {
       const sq = getNew();
-      console.log('@DB_FILE:', sq.dbName);
+      console.log('@DB_FILE:', sq.dbPath);
       const localId = sq.deviceId as string;
       const remoteId = getNanoId();
       const changes = generateChangesForTable({
@@ -105,13 +105,13 @@ describe('sync', () => {
       const updatedEntry = sq.runQuery({sql, values: entry});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
-      removeDb({ filename: sq.dbName });
+      removeDb({ filePath: sq.dbPath });
       expect(JSON.parse(meta.vclock)).toMatchObject({[localId]: 2});
     });
 
     test('should increment a local ID in vclock with another participant', async () => {
       const sq = getNew();
-      console.log('@DB_FILE:', sq.dbName);
+      console.log('@DB_FILE:', sq.dbPath);
       const localId = sq.deviceId as string;
       const remoteId = getNanoId();
       const changes = generateChangesForTable({
@@ -134,7 +134,7 @@ describe('sync', () => {
       sq.runQuery({sql, values: entry});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
-      removeDb({ filename: sq.dbName });
+      removeDb({ filePath: sq.dbPath });
       expect(JSON.parse(meta.vclock)).toMatchObject({[remoteId]: 1, [localId]: 2});
     });
   });
@@ -204,7 +204,7 @@ describe('sync', () => {
 
       sq.applyChangesToLocalDB({ changes });
       const pending = sq.getPending();
-      removeDb({ filename: sq.dbName });
+      removeDb({ filePath: sq.dbPath });
 
       expect(pending.length).toBe(1);
     });
@@ -255,7 +255,7 @@ describe('sync', () => {
       const updatedRecord = sq.getById(metaParams);
       const incoming = JSON.parse(changes[0].data);
       
-      removeDb({ filename: sq.dbName });
+      removeDb({ filePath: sq.dbPath });
       expect(updatedRecord.entry_title).toEqual(incoming.entry_title);
       expect(updatedRecord.entry_content).toEqual(incoming.entry_content);
       expect(updatedRecord.entry_updated).toEqual(incoming.entry_updated);
@@ -300,7 +300,7 @@ describe('sync', () => {
       const updatedMeta = sq.getRecordMeta(metaParams);
       const lastSyncAfter = sq.getLastSync();
       
-      removeDb({filename: sq.dbName});
+      removeDb({filePath: sq.dbPath});
       expect(updatedRecord).toMatchObject(randomEntry);
       expect(updatedMeta).toEqual(entryMeta);
       expect(lastSyncBefore).not.toEqual(lastSyncAfter);
@@ -349,7 +349,7 @@ describe('sync', () => {
       const incoming = JSON.parse(changes[0].data);
       console.log({entryMeta, updatedMeta});
       
-      removeDb({filename: sq.dbName});
+      removeDb({filePath: sq.dbPath});
       expect(updatedRecord).toMatchObject(randomEntry);
       // expect(updatedMeta).not.toEqual(entryMeta);
       expect(lastSyncBefore).not.toEqual(lastSyncAfter);

@@ -19,7 +19,7 @@
     "watch": "microbundle watch",
     "test": "vitest",
     "prepare": "husky",
-    "commitlint": "commitlint --edit $1"
+    "commitlint": "commitlint --config ./config/commitlint.config.js --edit $1"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.6.1",
