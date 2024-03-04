@@ -9,7 +9,7 @@ import { ISettingsParam, ILogObj } from 'tslog';
 export type BetterSqlite3Instance = BetterSqlite3.Database
 
 /**
- * Provided to SynQLite constructor.
+ * Provided to TinySynq constructor.
  * 
  * @public
  */
@@ -29,17 +29,17 @@ export interface SyncableTable {
 }
 
 /**
- * Base options for SynQLite constructor.
+ * Base options for TinySynq constructor.
  * 
  * @public
  */
-export interface SynQLiteOptionsBase {
+export interface TinySynqOptionsBase {
   /**
    * A BetterSqlite3 instance.
    * 
    * @remarks
    * 
-   * If not provided, {@link SynQLiteOptionsBase.filePath} must be set.
+   * If not provided, {@link TinySynqOptionsBase.filePath} must be set.
    * 
    */
   sqlite3?: BetterSqlite3Instance;
@@ -47,11 +47,11 @@ export interface SynQLiteOptionsBase {
    * Path to SQLite3 database file.
    * 
    * @remarks
-   * If not provided, {@link SynQLiteOptionsBase.sqlite3} must be set.
+   * If not provided, {@link TinySynqOptionsBase.sqlite3} must be set.
    */
   filePath?: string;
   /**
-   * Prefix to use for SynQLite tables (trailing underscores will be removed).
+   * Prefix to use for TinySynq tables (trailing underscores will be removed).
    */
   prefix: string;
   /**
@@ -67,14 +67,14 @@ export interface SynQLiteOptionsBase {
    */
   wal?: boolean;
   /**
-   * Array of queries to run before SynQLite's change tracking is configured.
+   * Array of queries to run before TinySynq's change tracking is configured.
    * 
    * @remarks
    * Include create statements for syncable tables here.
    */
   preInit?: string[];
   /**
-   * Array of queries to run after SynQLite's change tracking is configured
+   * Array of queries to run after TinySynq's change tracking is configured
    * 
    * @remarks
    * You might place any insert queries here.
@@ -84,7 +84,7 @@ export interface SynQLiteOptionsBase {
    * Configure logging options.
    * 
    * @remarks
-   * SynQLite uses TSLog for logging. All optiions are passed directly to it.
+   * TinySynq uses TSLog for logging. All optiions are passed directly to it.
    * See https://tslog.js.org/#/?id=settings for details
    */
   logOptions?: ISettingsParam<ILogObj>;
@@ -98,20 +98,20 @@ export interface SynQLiteOptionsBase {
 }
 
 /** 
- * Constructor options SynQLite instance.
+ * Constructor options TinySynq instance.
  * 
  * Provide either an existing {@link https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md | BetterSqlite3} instance (`sqlite3`) or the `filePath`.
  * 
  * @public
  */
-export interface SynQLiteOptionsWithInstance extends SynQLiteOptionsBase {
+export interface TinySynqOptionsWithInstance extends TinySynqOptionsBase {
   /**
    * A BetterSqlite3 instance.
    */
   sqlite3: BetterSqlite3Instance;
 }
 
-export interface SynQLiteOptionsWithFilePath extends SynQLiteOptionsBase{
+export interface TinySynqOptionsWithFilePath extends TinySynqOptionsBase{
   /**
    * Path to SQLite3 database file.
    */
@@ -119,11 +119,11 @@ export interface SynQLiteOptionsWithFilePath extends SynQLiteOptionsBase{
 }
 
 /** 
- * {@inheritdoc SynQLiteOptionsBase}
+ * {@inheritdoc TinySynqOptionsBase}
  * 
  * @public
  */
-export type SynQLiteOptions = SynQLiteOptionsWithInstance | SynQLiteOptionsWithFilePath
+export type TinySynqOptions = TinySynqOptionsWithInstance | TinySynqOptionsWithFilePath
 
 export type SQLite3 = any
 
@@ -160,7 +160,7 @@ export type VClock = {
   [deviceId: string]: number;
 }
 
-export enum SynQLiteOperation {
+export enum TinySynqOperation {
   'INSERT' = 'INSERT',
   'UPDATE' = 'UPDATE',
   'DELETE' = 'DELETE'
@@ -187,7 +187,7 @@ export interface Change {
   /**
    * The type of operation that took place.
    */
-  operation: keyof typeof SynQLiteOperation;
+  operation: keyof typeof TinySynqOperation;
   /**
    * The serialised object in the post-modified state. 
    */

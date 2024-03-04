@@ -1,7 +1,7 @@
 import setupDatabase from '../src/lib/index.js';
 import { Change, LogLevel, SyncableTable, VClock } from '../src/lib/types.js';
 import fs from 'fs';
-import { SynQLite } from '../src/lib/synqlite.class.js';
+import { TinySynq } from '../src/lib/tinysynq.class.js';
 import { ILogObj, ISettingsParam } from 'tslog';
 import { nanoid } from 'nanoid';
 import { SYNQLITE_NANOID_SIZE } from '../src/lib/constants.js';
@@ -25,7 +25,7 @@ export function getNanoId() {
   return nanoid(SYNQLITE_NANOID_SIZE);
 }
 
-export function getConfiguredDb(configData?: {config?: ConfigureParams, useDefault?: boolean}): SynQLite {
+export function getConfiguredDb(configData?: {config?: ConfigureParams, useDefault?: boolean}): TinySynq {
   const { config, useDefault = false } = (configData || {});
   const filePath = getRandomdbPath();
   const prefix = (filePath.split('/').pop() || '').split('.')[0];
@@ -91,7 +91,7 @@ type GetRandomReturn<T> = {
  * or a random record from `opts.table_name`.
  * 
  * @param {Object} opts - configure behaviour
- * @param {SynQLite} opts.sq - SynQLite instance
+ * @param {TinySynq} opts.sq - TinySynq instance
  * @param {string} opts.table_name - name of the table from which to grab a record 
  * @param {string} opts.row_id - identifier of the table row 
  * @param {boolean} opts.select - whether or not to select a random record 
@@ -118,7 +118,7 @@ export function getRecordOrRandom<T>({sq, table_name, row_id, select = true}: an
 type ColumnName = string;
 type TableName = string;
 type GenerateRowDataOptions = {
-  sq: SynQLite;
+  sq: TinySynq;
   operation: Operation;
   table_name: string;
   row_id: string;
@@ -187,7 +187,7 @@ export function getRandomDateTime(opts?: {asString?: boolean}) {
   return date.toISOString().replace('Z', ''); 
 }
 
-export function getTableIdColumn({db, table}: {db: SynQLite, table: string}) {
+export function getTableIdColumn({db, table}: {db: TinySynq, table: string}) {
   return db.synqTables![table]?.id as string;
 }
 
@@ -210,7 +210,7 @@ export function getDefaultColumnValue({columnData, columnName, allowEmpty = true
 }
 
 type generateChangesForTableOptions = {
-  sq: SynQLite;
+  sq: TinySynq;
   table: string;
   origin: string;
   operation?: Operation;
@@ -328,7 +328,7 @@ export function getRandomColumnUpdate({editableTables}: {editableTables: Editabl
 }
 
 type AlterRecordMetaBase = {
-  sq: SynQLite,
+  sq: TinySynq,
   table_name: string;
   row_id: string;
   updates: {

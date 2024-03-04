@@ -1,16 +1,16 @@
 import { Logger } from "tslog";
-import { SynQLite } from "./synqlite.class.js";
-import { SynQLiteOptions, SyncableTable } from "./types.js";
+import { TinySynq } from "./tinysynq.class.js";
+import { TinySynqOptions, SyncableTable } from "./types.js";
 
 /**
- * Returns a configured instance of SynQLite
+ * Returns a configured instance of TinySynq
  * 
  * @param config - Configuration object 
- * @returns SynQLite instance
+ * @returns TinySynq instance
  * 
  * @public
  */
-const setupDatabase = (config: SynQLiteOptions) => {
+const setupDatabase = (config: TinySynqOptions) => {
   const {
     tables,
     preInit,
@@ -21,8 +21,8 @@ const setupDatabase = (config: SynQLiteOptions) => {
 
   if (!tables?.length) throw new Error('Syncable table data required');
 
-  const log = new Logger({ name: 'synqlite-setup', ...logOptions});
-  const db = new SynQLite(config);
+  const log = new Logger({ name: 'tinysync-setup', ...logOptions});
+  const db = new TinySynq(config);
 
   const getRecordMetaInsertQuery = ({table, remove = false}: {table: SyncableTable, remove?: boolean}) => {
     /* 

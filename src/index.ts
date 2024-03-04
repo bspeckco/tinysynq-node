@@ -4,14 +4,14 @@ export default lib;
 
 export type { 
   SyncableTable,
-  SynQLiteOptions,
-  SynQLiteOptionsBase,
+  TinySynqOptions,
+  TinySynqOptionsBase,
   Change,
   QueryParams,
   BetterSqlite3Instance,
 } from './lib/types.js';
 
 export type {
-  SynQLite,
+  TinySynq,
   GetTableIdColumnParams
-} from './lib/synqlite.class.js';
+} from './lib/tinysynq.class.js';

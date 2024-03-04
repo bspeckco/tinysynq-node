@@ -1,5 +1,5 @@
 {
-  "name": "synqlite-node",
+  "name": "tinysynq-node",
   "type": "module",
   "source": "src/index.ts",
   "engines": {
@@ -7,18 +7,19 @@
   },
   "exports": {
     "types": "./dist/index.d.ts",
-    "require": "./dist/synqlite.cjs",
-    "default": "./dist/synqlite.modern.js"
+    "require": "./dist/tinysynq.cjs",
+    "default": "./dist/tinysynq.modern.js"
   },
   "types": "./dist/index.d.ts",
-  "main": "./dist/synqlite.cjs",
-  "module": "./dist/symqlite.module.js",
-  "unpkg": "./dist/synqlite.umd.js",
+  "main": "./dist/tinysynq.cjs",
+  "module": "./dist/tinysynq.module.js",
+  "unpkg": "./dist/tinysynq.umd.js",
   "scripts": {
     "build": "microbundle",
     "watch": "microbundle watch",
     "test": "vitest",
     "prepare": "husky",
+    "docs": "api-extractor run --local --verbose && api-documenter markdown --input-folder temp --output-folder docs",
     "commitlint": "commitlint --config ./config/commitlint.config.js --edit $1"
   },
   "devDependencies": {

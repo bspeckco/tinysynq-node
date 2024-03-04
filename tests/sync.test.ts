@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { alterRecordMeta, generateChangesForTable, getConfiguredDb, getNanoId, getRandomDateTime, getRecordOrRandom, removeDb, wait } from "./utils.js";
-import { SynQLite } from "../src/lib/synqlite.class.js";
+import { TinySynq } from "../src/lib/tinysynq.class.js";
 import { testCreateTableEntry, testCreateTableJournal, testEntryData, testInsertRowEntry, testInsertRowJournal, testJournalData } from "./test-data/journal.data.js";
 import { SYNQLITE_NANOID_SIZE, SYNQ_INSERT, SYNQ_UPDATE } from "../src/lib/constants.js";
 import { nanoid } from "nanoid";
@@ -12,7 +12,7 @@ const preInit = [
 ];
 
 const getNew = () => {
-  let sq: SynQLite = getConfiguredDb({
+  let sq: TinySynq = getConfiguredDb({
     config: {
       preInit,
       tables: [

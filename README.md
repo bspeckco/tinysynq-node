@@ -1,4 +1,4 @@
-# synqlite-node
+# tinysynq-node
 
 To install dependencies:
 
