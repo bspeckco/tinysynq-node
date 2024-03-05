@@ -1,5 +1,5 @@
 import setupDatabase from '../src/lib/index.js';
-import { Change, LogLevel, SyncableTable, VClock } from '../src/lib/types.js';
+import { Change, LogLevel, SyncableTable, TinySynqOperation, VClock } from '../src/lib/types.js';
 import fs from 'fs';
 import { TinySynq } from '../src/lib/tinysynq.class.js';
 import { ILogObj, ISettingsParam } from 'tslog';
@@ -71,13 +71,7 @@ export function getRandom(size: number) {
   return Math.floor(Math.random() * size);
 }
 
-enum SynqOperation {
-  'INSERT' = 'INSERT',
-  'UPDATE' = 'UPDATE',
-  'DELETE' = 'DELETE'
-}
-
-type Operation = keyof typeof SynqOperation;
+type Operation = keyof typeof TinySynqOperation;
 type GetRandomReturn<T> = {
   id_col: string;
   table_name: string;
@@ -152,7 +146,7 @@ function generateRowData(
         updated[col] = record.data[record.id_col];
       }
       else {
-        updated[col] = operation === SynqOperation.INSERT ? row_id : updated[column.name];
+        updated[col] = operation === TinySynqOperation.INSERT ? row_id : updated[column.name];
       }
     }
     else if (values && values[col] !== 'undefined') {
