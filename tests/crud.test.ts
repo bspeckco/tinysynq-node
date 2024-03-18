@@ -1,8 +1,9 @@
 import { describe, test, expect } from 'vitest';
 import { getConfiguredDb, removeDb } from './utils.js';
+import { TinySynqOperation } from '../src/lib/types.js';
 
-describe.only('CRUD', () => {
-  describe.only('applyChangesToLocalDB', () => {
+describe('CRUD', () => {
+  describe('applyChangesToLocalDB', () => {
     test('UPDATE is applied correctly', () => {
       const sq = getConfiguredDb({useDefault: true});
       const filePath = sq.dbPath;
@@ -13,12 +14,13 @@ describe.only('CRUD', () => {
           id: 1,
           table_name: 'items',
           row_id: 'fakeId0',
-          operation: 'UPDATE',
+          operation: TinySynqOperation.UPDATE,
           data: JSON.stringify({item_id: 'fakeId0', name: "Updated Item" }),
           modified: sq.utils.utcNowAsISO8601(),
           vclock: {[sq.deviceId!]: 2}
         },
       ];
+      changes[0].modified = new Date().toISOString();
       sq.applyChangesToLocalDB({changes});
 
       // Verify changes were applied
@@ -28,7 +30,7 @@ describe.only('CRUD', () => {
       expect(item.name).toBe('Updated Item');
     });
 
-    test.only('DELETE is applied correctly', () => {
+    test('DELETE is applied correctly', () => {
       const sq = getConfiguredDb({useDefault: true});
       const filePath = sq.dbPath;
 
@@ -45,13 +47,13 @@ describe.only('CRUD', () => {
           id: 2,
           table_name: 'items',
           row_id: 'fakeId1',
-          operation: 'DELETE',
+          operation: TinySynqOperation.DELETE,
           data: JSON.stringify({ name: "Updated Item" }),
           modified: sq.utils.utcNowAsISO8601(),
           vclock,
         },
       ];
-
+      changes[0].modified = new Date().toISOString();
       sq.applyChangesToLocalDB({changes});
 
       // Verify item was deleted were applied
@@ -69,13 +71,13 @@ describe.only('CRUD', () => {
           id: 3,
           table_name: 'items',
           row_id: 'fakeId2',
-          operation: 'INSERT',
+          operation: TinySynqOperation.INSERT,
           data: JSON.stringify({ item_id: 'fakeId2', name: "Inserted Item" }),
           modified: sq.utils.utcNowAsISO8601(),
           vclock: {[sq.deviceId!]: 1}
         },
       ];
-
+      changes[0].modified = new Date().toISOString();
       sq.applyChangesToLocalDB({changes});
 
       // Verify item was deleted were applied

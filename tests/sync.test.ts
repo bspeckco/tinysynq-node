@@ -1,8 +1,8 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { alterRecordMeta, generateChangesForTable, getConfiguredDb, getNanoId, getRandomDateTime, getRecordOrRandom, removeDb, wait } from "./utils.js";
 import { TinySynq } from "../src/lib/tinysynq.class.js";
 import { testCreateTableEntry, testCreateTableJournal, testEntryData, testInsertRowEntry, testInsertRowJournal, testJournalData } from "./test-data/journal.data.js";
-import { SYNQLITE_NANOID_SIZE, SYNQ_INSERT, SYNQ_UPDATE } from "../src/lib/constants.js";
+import { SYNQLITE_NANOID_SIZE, SYNQ_UPDATE } from "../src/lib/constants.js";
 import { nanoid } from "nanoid";
 import { LogLevel } from "../src/lib/types.js";
 
@@ -35,7 +35,7 @@ const getNew = () => {
   return sq;
 };
 
-describe('sync', () => {
+describe('Sync', () => {
 
   describe('vclock', () => {
     test('should increment by 1', () => {
@@ -66,6 +66,7 @@ describe('sync', () => {
         origin: remoteId,
         operation: 'UPDATE',
       });
+      changes[0].modified = new Date().toISOString();
 
       const entry = sq.getById({table_name: 'entry', row_id: changes[0].row_id});
       const originalMeta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
@@ -111,7 +112,6 @@ describe('sync', () => {
 
     test('should increment a local ID in vclock with another participant', async () => {
       const sq = getNew();
-      console.log('@DB_FILE:', sq.dbPath);
       const localId = sq.deviceId as string;
       const remoteId = getNanoId();
       const changes = generateChangesForTable({
@@ -120,6 +120,7 @@ describe('sync', () => {
         origin: remoteId,
         operation: 'UPDATE',
       });
+      changes[0].modified = new Date().toISOString();
 
       sq.applyChangesToLocalDB({ changes });
       
@@ -140,7 +141,7 @@ describe('sync', () => {
   });
 
   describe('changes', () => {
-    test('should move to pendingld when received out of order', () => {
+    test('should move to pending when received out of order', () => {
       const sq = getNew();
       const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
       const constraints = new Map(Object.entries({
@@ -174,7 +175,7 @@ describe('sync', () => {
       expect(pending[0].row_id).toBe(randomEntry.entry_id);
     });
 
-    test('should be put on hold when attempting to update non-existent record', () => {
+    test('should move to pending when attempting to update non-existent record', () => {
       const sq = getNew();
       const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
       const constraints = new Map(Object.entries({

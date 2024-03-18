@@ -75,6 +75,7 @@ export class TinySynq {
     }): Change[];
     getDeviceId(): string;
     getLastSync(): string;
+    getNewId(): string;
     getPending(): any;
     getRecordMeta(params: {
         table_name: string;

@@ -5,6 +5,8 @@ type VectorClockParams = {
   local: VClock;
   remote: VClock;
   localId: string;
+  localTime: string;
+  remoteTime: string;
 }
 
 type RemoteVClockParams = {
@@ -19,13 +21,18 @@ export class VCompare { // @TODO: rename to VCompare
   private isWrongOrder = false;
   private remote: VClock = {};
   private localId: string;
+  private localTime: string;
+  private remoteTime: string;
 
-  constructor({ local, remote, localId }: VectorClockParams) {
+
+  constructor({ local, remote, localId, localTime, remoteTime }: VectorClockParams) {
     this.local = local;
     this.remote = typeof remote === 'string'
       ? JSON.parse(remote)
       : remote;
     this.localId = localId;
+    this.localTime = localTime;
+    this.remoteTime = remoteTime;
   }
 
   setRemote({ remote }: RemoteVClockParams) {
@@ -46,10 +53,11 @@ export class VCompare { // @TODO: rename to VCompare
   }
 
   isOutDated(): boolean {
-    const { remote, local, localId } = this;
-    if (!remote || !local) throw new Error('Remote vector clock not set');
-    // Locally changes have taken places that the remote is missing.
-    return local[localId] > remote[localId];
+    // Default localTime to any early date so that 
+    // remote always wins when local is empty.
+    const { remoteTime, localTime = new Date('1970-01-01').toISOString() } = this;
+    if (!remoteTime || !localTime) throw new Error('Missing modified time');
+    return localTime >= remoteTime;
   }
 
   isOutOfOrder(): boolean {

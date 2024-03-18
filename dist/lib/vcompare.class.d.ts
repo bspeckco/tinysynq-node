@@ -3,6 +3,8 @@ type VectorClockParams = {
     local: VClock;
     remote: VClock;
     localId: string;
+    localTime: string;
+    remoteTime: string;
 };
 type RemoteVClockParams = {
     remote: VClock;
@@ -14,7 +16,9 @@ export declare class VCompare {
     private isWrongOrder;
     private remote;
     private localId;
-    constructor({ local, remote, localId }: VectorClockParams);
+    private localTime;
+    private remoteTime;
+    constructor({ local, remote, localId, localTime, remoteTime }: VectorClockParams);
     setRemote({ remote }: RemoteVClockParams): void;
     isConflicted(data?: RemoteVClockParams): boolean;
     isOutDated(): boolean;
