@@ -7,14 +7,17 @@
 **Signature:**
 
 ```typescript
-insertRecordMeta({ change, vclock }: any): any;
+insertRecordMeta({ change, vclock }: {
+        change: Change;
+        vclock: VClock;
+    }): any;
 ```
 
 ## Parameters
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  { change, vclock } | any |  |
+|  { change, vclock } | { change: [Change](./tinysynq-node.change.md)<!-- -->; vclock: VClock; } |  |
 
 **Returns:**
 

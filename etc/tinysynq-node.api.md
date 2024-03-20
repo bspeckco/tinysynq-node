@@ -7,6 +7,9 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { ILogObj } from 'tslog';
 import { ISettingsParam } from 'tslog';
+import { TemplatedApp } from 'uWebSockets.js';
+import { TinySynq as TinySynq_2 } from './lib/tinysynq.class.js';
+import { TinySynqOptions as TinySynqOptions_2 } from './lib/types.js';
 
 // @public
 export type BetterSqlite3Instance = BetterSqlite3.Database;
@@ -15,14 +18,23 @@ export type BetterSqlite3Instance = BetterSqlite3.Database;
 export interface Change {
     data: string;
     id?: number;
+    mod: number;
     modified: string;
     // Warning: (ae-forgotten-export) The symbol "TinySynqOperation" needs to be exported by the entry point index.d.ts
     operation: keyof typeof TinySynqOperation;
     row_id: string;
+    source: string;
     table_name: string;
     // Warning: (ae-forgotten-export) The symbol "VClock" needs to be exported by the entry point index.d.ts
     vclock: VClock;
 }
+
+// @public (undocumented)
+const _default: {
+    startTinySynqServer: (ts: TinySynq_2) => TemplatedApp;
+    initTinySynq: (config: TinySynqOptions_2) => TinySynq_2;
+};
+export default _default;
 
 // @public
 export type GetTableIdColumnParams = {
@@ -34,10 +46,6 @@ export type QueryParams = {
     sql: string;
     values?: any;
 };
-
-// @public
-const setupDatabase: (config: TinySynqOptions) => TinySynq;
-export default setupDatabase;
 
 // @public
 export interface SyncableTable {
@@ -75,6 +83,8 @@ export class TinySynq {
     }): Change[];
     getDeviceId(): string;
     getLastSync(): string;
+    // Warning: (ae-forgotten-export) The symbol "LatestChangesOptions" needs to be exported by the entry point index.d.ts
+    getLatestChanges(opts?: LatestChangesOptions): any;
     getNewId(): string;
     getPending(): any;
     getRecordMeta(params: {
@@ -83,7 +93,10 @@ export class TinySynq {
     }): any;
     getTableIdColumn(params: GetTableIdColumnParams): string;
     // (undocumented)
-    insertRecordMeta({ change, vclock }: any): any;
+    insertRecordMeta({ change, vclock }: {
+        change: Change;
+        vclock: VClock;
+    }): any;
     run<T>(params: QueryParams): T;
     runMany(params: {
         sql: string;

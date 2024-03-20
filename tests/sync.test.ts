@@ -5,6 +5,9 @@ import { testCreateTableEntry, testCreateTableJournal, testEntryData, testInsert
 import { SYNQLITE_NANOID_SIZE, SYNQ_UPDATE } from "../src/lib/constants.js";
 import { nanoid } from "nanoid";
 import { LogLevel } from "../src/lib/types.js";
+import { Logger } from "tslog";
+
+const log = new Logger({name: 'SYNC_TEST', type: 'pretty', minLevel: LogLevel.Debug})
 
 const preInit = [
   testCreateTableJournal,

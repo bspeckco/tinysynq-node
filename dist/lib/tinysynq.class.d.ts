@@ -1,4 +1,4 @@
-import { Change, QueryParams, TinySynqOptions, SyncableTable, TableNameRowParams } from './types.js';
+import { Change, QueryParams, TinySynqOptions, SyncableTable, TableNameRowParams, VClock, LatestChangesOptions } from './types.js';
 /**
  * Basic utilities, mainly date-oriented.
  */
@@ -255,7 +255,10 @@ export declare class TinySynq {
      * @returns
      */
     getById<T>(params: TableNameRowParams): T | any;
-    insertRecordMeta({ change, vclock }: any): any;
+    insertRecordMeta({ change, vclock }: {
+        change: Change;
+        vclock: VClock;
+    }): any;
     /**
      * Get associated meta data (including `vclock`) for record.
      *
@@ -325,6 +328,12 @@ export declare class TinySynq {
         changes: Change[];
         restore?: boolean;
     }): void;
+    /**
+     * Get items that have been recently changed.
+     *
+     * @param opts
+     */
+    getFilteredChanges(opts?: LatestChangesOptions): any;
     tablesReady(): void;
 }
 //# sourceMappingURL=tinysynq.class.d.ts.map

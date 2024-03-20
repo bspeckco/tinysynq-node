@@ -1,6 +1,7 @@
 import lib from './lib/index.js';
+import { startTinySynqServer } from './lib/server.js';
 
-export default lib;
+export default { startTinySynqServer, initTinySynq: lib };
 
 export type { 
   SyncableTable,
@@ -13,5 +14,5 @@ export type {
 
 export type {
   TinySynq,
-  GetTableIdColumnParams
+  GetTableIdColumnParams,
 } from './lib/tinysynq.class.js';

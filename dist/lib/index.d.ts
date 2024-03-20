@@ -8,6 +8,6 @@ import { TinySynqOptions } from "./types.js";
  *
  * @public
  */
-declare const setupDatabase: (config: TinySynqOptions) => TinySynq;
-export default setupDatabase;
+declare const initTinySynq: (config: TinySynqOptions) => TinySynq;
+export default initTinySynq;
 //# sourceMappingURL=index.d.ts.map

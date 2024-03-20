@@ -11,6 +11,9 @@ dependencies:
   date-fns:
     specifier: ^3.3.1
     version: 3.3.1
+  dotenv:
+    specifier: ^16.4.5
+    version: 16.4.5
   nanoid:
     specifier: ^5.0.5
     version: 5.0.5
@@ -20,6 +23,12 @@ dependencies:
   typescript:
     specifier: ^5.0.0
     version: 4.9.5
+  uWebSockets.js:
+    specifier: github:uNetworking/uWebSockets.js#v20.43.0
+    version: github.com/uNetworking/uWebSockets.js/1977b5039938ad863d42fc4958d48c17e5a1fa06
+  ws:
+    specifier: ^8.16.0
+    version: 8.16.0
 
 devDependencies:
   '@commitlint/cli':
@@ -40,6 +49,9 @@ devDependencies:
   '@types/bun':
     specifier: latest
     version: 1.0.4
+  '@types/ws':
+    specifier: ^8.5.10
+    version: 8.5.10
   microbundle:
     specifier: ^0.15.1
     version: 0.15.1
@@ -3166,6 +3178,11 @@ packages:
     dependencies:
       is-obj: 2.0.0
     dev: true
+
+  /dotenv@16.4.5:
+    resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
+    engines: {node: '>=12'}
+    dev: false
 
   /dotgitignore@2.1.0:
     resolution: {integrity: sha512-sCm11ak2oY6DglEPpCB8TixLjWAxd3kJTs6UIcSasNYxXdFPV+YKlye92c8H4kKFqV5qYMIh7d+cYecEg0dIkA==}
@@ -6450,6 +6467,19 @@ packages:
   /wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  /ws@8.16.0:
+    resolution: {integrity: sha512-HS0c//TP7Ina87TfiPUz1rQzMhHrl/SG2guqRcTOIUYD2q8uhUdNHZYJUaQ8aTGPzCh+c6oawMKW35nFl1dxyQ==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false
+
   /xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -6529,3 +6559,9 @@ packages:
     optionalDependencies:
       commander: 9.5.0
     dev: true
+
+  github.com/uNetworking/uWebSockets.js/1977b5039938ad863d42fc4958d48c17e5a1fa06:
+    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/1977b5039938ad863d42fc4958d48c17e5a1fa06}
+    name: uWebSockets.js
+    version: 20.43.0
+    dev: false

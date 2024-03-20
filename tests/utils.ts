@@ -1,4 +1,4 @@
-import setupDatabase from '../src/lib/index.js';
+import initTinySynq from '../src/lib/index.js';
 import { Change, LogLevel, SyncableTable, TinySynqOperation, VClock } from '../src/lib/types.js';
 import fs from 'fs';
 import { TinySynq } from '../src/lib/tinysynq.class.js';
@@ -40,12 +40,13 @@ export function getConfiguredDb(configData?: {config?: ConfigureParams, useDefau
     postInit: config?.postInit || (useDefault ? testInsertRowItem : []),
     logOptions: {
       name: filePath,
-      minLevel: logLevel
+      minLevel: logLevel,
+      type: 'pretty' as any
     },
     debug: config?.debug
   };
-
-  return setupDatabase({ ...defaultConfig, ...(config || {}) });
+  const finalConfig = {...defaultConfig, ...(config || {})};
+  return initTinySynq(finalConfig);
 }
 
 export function wait({ms = 100}: {ms: number}) {
@@ -289,6 +290,8 @@ export function generateChangesForTable(
       operation: randOp as Operation,
       data: JSON.stringify(rowData),
       vclock,
+      source: origin,
+      mod: vclock[origin],
       modified: sq.utils.utcNowAsISO8601()
     };
     changes.push(change);

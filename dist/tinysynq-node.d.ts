@@ -1,6 +1,24 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { ILogObj } from 'tslog';
 import { ISettingsParam } from 'tslog';
+import { TemplatedApp } from 'uWebSockets.js';
+import { TinySynq as TinySynq_2 } from './lib/tinysynq.class.js';
+import { TinySynqOptions as TinySynqOptions_2 } from './lib/types.js';
+
+declare interface BaseLatestChangesOptions {
+    /**
+     * A device ID whose changes should be excluded from retrieval (usually the requester).
+     */
+    exclude: string;
+    /**
+     * An ISO8601 date string. Providing this will limit retrieved changes to this date/time onwards.
+     */
+    since: string;
+    /**
+     * A
+     */
+    checkpoint: number;
+}
 
 /**
  * A {@link https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md | BetterSqlite3} instance.
@@ -40,10 +58,20 @@ export declare interface Change {
      */
     vclock: VClock;
     /**
+     * Device ID from which the change originated.
+     */
+    source: string;
+    /**
      * An ISO8601 formatted date and time that the change was recorded on the source device.
      */
     modified: string;
 }
+
+declare const _default: {
+    startTinySynqServer: (ts: TinySynq_2) => TemplatedApp;
+    initTinySynq: (config: TinySynqOptions_2) => TinySynq_2;
+};
+export default _default;
 
 /**
  * Parameters for retrieving table's ID column.
@@ -54,6 +82,27 @@ export declare type GetTableIdColumnParams = {
     table_name: string;
 };
 
+declare type LatestChangesOptions = LatestChangesWithSince | LatestChangesWithCheckpoint;
+
+declare interface LatestChangesWithCheckpoint extends BaseLatestChangesOptions {
+    /**
+     * A server-specific change ID.
+     *
+     * @remarks
+     *
+     * When provided it will limit retrieved changes to those _after_ the specified change ID.
+     * The change ID is specific to the hub/root server (of which there should be only one).
+     */
+    checkpoint: number;
+}
+
+declare interface LatestChangesWithSince extends BaseLatestChangesOptions {
+    /**
+     * An ISO8601 date string. Providing this will limit retrieved changes to this date/time onwards.
+     */
+    since: string;
+}
+
 /**
  * Basic query params for methods that read from/write to DB.
  *
@@ -63,17 +112,6 @@ export declare type QueryParams = {
     sql: string;
     values?: any;
 };
-
-/**
- * Returns a configured instance of TinySynq
- *
- * @param config - Configuration object
- * @returns TinySynq instance
- *
- * @public
- */
-declare const setupDatabase: (config: TinySynqOptions) => TinySynq;
-export default setupDatabase;
 
 /**
  * Provided to TinySynq constructor.
@@ -343,7 +381,10 @@ export declare class TinySynq {
      * @returns
      */
     getById<T>(params: TableNameRowParams): T | any;
-    insertRecordMeta({ change, vclock }: any): any;
+    insertRecordMeta({ change, vclock }: {
+        change: Change;
+        vclock: VClock;
+    }): any;
     /**
      * Get associated meta data (including `vclock`) for record.
      *
@@ -413,6 +454,12 @@ export declare class TinySynq {
         changes: Change[];
         restore?: boolean;
     }): void;
+    /**
+     * Get items that have been recently changed.
+     *
+     * @param opts
+     */
+    getFilteredChanges(opts?: LatestChangesOptions): any;
     tablesReady(): void;
 }
 

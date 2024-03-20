@@ -1,2 +1,1592 @@
-import{Logger as e}from"tslog";import n from"better-sqlite3";import{nanoid as t}from"nanoid";function r(e){var n=function(e,n){if("object"!=typeof e||!e)return e;var t=e[Symbol.toPrimitive];if(void 0!==t){var r=t.call(e,"string");if("object"!=typeof r)return r;throw new TypeError("@@toPrimitive must return a primitive value.")}return String(e)}(e);return"symbol"==typeof n?n:String(n)}function a(){return a=Object.assign?Object.assign.bind():function(e){for(var n=1;n<arguments.length;n++){var t=arguments[n];for(var r in t)Object.prototype.hasOwnProperty.call(t,r)&&(e[r]=t[r])}return e},a.apply(this,arguments)}function i(e,n){(null==n||n>e.length)&&(n=e.length);for(var t=0,r=new Array(n);t<n;t++)r[t]=e[t];return r}function o(e,n){var t="undefined"!=typeof Symbol&&e[Symbol.iterator]||e["@@iterator"];if(t)return(t=t.call(e)).next.bind(t);if(Array.isArray(e)||(t=function(e,n){if(e){if("string"==typeof e)return i(e,n);var t=Object.prototype.toString.call(e).slice(8,-1);return"Object"===t&&e.constructor&&(t=e.constructor.name),"Map"===t||"Set"===t?Array.from(e):"Arguments"===t||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t)?i(e,n):void 0}}(e))||n&&e&&"number"==typeof e.length){t&&(e=t);var r=0;return function(){return r>=e.length?{done:!0}:{done:!1,value:e[r++]}}}throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}var s,l;!function(e){e.INSERT="INSERT",e.UPDATE="UPDATE",e.DELETE="DELETE"}(s||(s={})),function(e){e[e.Silly=0]="Silly",e[e.Trace=1]="Trace",e[e.Debug=2]="Debug",e[e.Info=3]="Info",e[e.Warn=4]="Warn",e[e.Error=5]="Error",e[e.Fatal=6]="Fatal"}(l||(l={}));var E=/*#__PURE__*/function(){function e(e){var n=e.local,t=e.remote,r=e.localId,a=e.localTime,i=e.remoteTime;this.local=void 0,this.isGreater=!1,this.isLess=!1,this.isWrongOrder=!1,this.remote={},this.localId=void 0,this.localTime=void 0,this.remoteTime=void 0,this.local=n,this.remote="string"==typeof t?JSON.parse(t):t,this.localId=r,this.localTime=a,this.remoteTime=i}var n=e.prototype;return n.setRemote=function(e){this.remote=e.remote},n.isConflicted=function(e){var n=this,t=(null==e?void 0:e.remote)||this.remote;return Object.keys(a({},this.local,t)).forEach(function(e){var r=n.local[e]||0,a=t[e]||0;n.isGreater=n.isGreater||r>a,n.isLess=n.isLess||r<a}),this.isGreater&&this.isLess},n.isOutDated=function(){var e=this.remoteTime,n=this.localTime,t=void 0===n?new Date("1970-01-01").toISOString():n;if(!e||!t)throw new Error("Missing modified time");return t>=e},n.isOutOfOrder=function(){var e=this.remote,n=this.local,t=this.localId;if(!e||!n)throw new Error("Remote vector clock not set");for(var r=Object.keys(a({},this.local,e)).filter(function(e){return e!==t}),i=0;i<r.length;i++){var o,s,l=r[i],E=Math.abs((null!=(o=n[l])?o:0)-(null!=(s=e[l])?s:0));this.isWrongOrder=E>1}return this.isWrongOrder},n.merge=function(){for(var e,n={},t=o(new Set(Object.keys(this.local).concat(Object.keys(this.remote))));!(e=t()).done;){var r=e.value;n[r]=Math.max(this.local[r]||0,this.remote[r]||0)}return void 0===n[this.localId]&&(n[this.localId]=0),n},e}(),c=["id"];function u(e,n,t){if(!e.s){if(t instanceof d){if(!t.s)return void(t.o=u.bind(null,e,n));1&n&&(n=t.s),t=t.v}if(t&&t.then)return void t.then(u.bind(null,e,n),u.bind(null,e,2));e.s=n,e.v=t;var r=e.o;r&&r(e)}}var d=/*#__PURE__*/function(){function e(){}return e.prototype.then=function(n,t){var r=new e,a=this.s;if(a){var i=1&a?n:t;if(i){try{u(r,1,i(this.v))}catch(e){u(r,2,e)}return r}return this}return this.o=function(e){try{var a=e.v;1&e.s?u(r,1,n?n(a):a):t?u(r,1,t(a)):u(r,2,a)}catch(e){u(r,2,e)}},r},e}(),_=new e({name:"tinysync-web-init",minLevel:l.Info}),T="STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')",m=/*#__PURE__*/function(){function i(t){var r,i;if(this._db=void 0,this._dbPath=void 0,this._deviceId=void 0,this._synqPrefix=void 0,this._synqTables=void 0,this._synqBatchSize=20,this._wal=!0,this.log=void 0,this.utils={strtimeAsISO8601:T,nowAsISO8601:T,utcNowAsISO8601:function(){return new Date((new Date).toUTCString()).toISOString()}},!t.filePath&&!t.sqlite3)throw new Error("No DB filePath or connection provided");var o={};t.tables.forEach(function(e){o[e.name]=e}),this._dbPath=t.filePath||"",this._db=t.sqlite3||void 0,this._synqPrefix=null==(r=t.prefix)?void 0:r.trim().replace(/[^a-z0-9]+$/i,""),this._synqTables=o,this._synqBatchSize=t.batchSize||this._synqBatchSize,this._wal=null!=(i=t.wal)&&i,this.log=new e(a({name:"tinysync-node",minLevel:l.Debug,type:"json",maskValuesOfKeys:["password","encryption_key"],hideLogPositionForProduction:!0},t.logOptions||{})),this.db||(this._db=new n(this.dbPath),this.db.pragma("journal_mode = WAL"))}var m,f,h=i.prototype;return h.getNewId=function(){return t(16)},h.getTableIdColumn=function(e){var n;return null==(n=this.synqTables[e.table_name])?void 0:n.id},h.setDeviceId=function(){var e,n,r;try{r=this.runQuery({sql:"SELECT meta_value FROM "+this.synqPrefix+"_meta WHERE meta_name = 'device_id'"})[0]}catch(e){this.log.warn("Couldn't retrieve device ID")}if(_.warn("@device_id",r),null==(e=r)||!e.meta_value){var a=this.runQuery({sql:"INSERT OR REPLACE INTO "+this.synqPrefix+"_meta (meta_name, meta_value) VALUES (?,?) RETURNING *",values:["device_id",t(16)]});_.warn("@created record for device_id:",a),r=a[0]}this._deviceId=null==(n=r)?void 0:n.meta_value},h.run=function(e){var n=e.sql,t=e.values,r=Math.ceil(1e6*Math.random());this.log.debug("@run",r,n,t,"/");try{var a=this.db.prepare(n).run(t||[]);return this.log.debug({quid:r,result:a}),a}catch(e){return this.log.error(r,e),e}},h.runMany=function(e){var n=e.sql,t=e.values,r=Math.ceil(1e6*Math.random());this.log.debug("@runMany",r,n,t,"/");try{for(var a,i=this.db.prepare(n),s=o(t);!(a=s()).done;)i.run(a.value);this.log.debug({quid:r,result:"done"})}catch(e){return this.log.error(r,e),e}},h.runQuery=function(e){var n=e.sql,t=e.values,r=Math.ceil(1e6*Math.random());this.log.debug("@runQuery",{quid:r,sql:n,values:t});try{var a=this.db.prepare(n).all(t||[]);return this.log.debug({quid:r,result:a}),a}catch(e){return this.log.error(r,e),e}},h.getDeviceId=function(){return this._deviceId?this._deviceId:this.runQuery({sql:"\n        SELECT meta_value FROM "+this.synqPrefix+"_meta\n        WHERE meta_name = 'device_id'"})[0].meta_value},h.getLastSync=function(){var e,n=this.runQuery({sql:"\n        SELECT meta_value FROM "+this.synqPrefix+"_meta\n        WHERE meta_name = 'last_local_sync'"});return this.log.trace("@getLastSync",n[0]),null==(e=n[0])?void 0:e.meta_value},h.getChanges=function(e){var n=(null==e?void 0:e.lastLocalSync)||this.getLastSync(),t=(e||{}).columns,r=void 0===t?[]:t;this.log.debug("@getChanges",n);var a="";n&&(a="WHERE c.modified > ?");var i="\n      SELECT "+(r.map(function(e){return e.replace(/[^*._a-z0-9]+/gi,"")}).join(",")||"*")+"\n      FROM "+this._synqPrefix+"_changes c\n      INNER JOIN "+this._synqPrefix+"_record_meta trm\n      ON trm.table_name = c.table_name\n      AND trm.row_id = c.row_id\n      "+a+"\n      ORDER BY c.modified ASC\n    ";console.log(i);var o=n?[n]:[];return this.log.debug(i,o),this.runQuery({sql:i,values:o})},h.getChangesSinceLastSync=function(e){var n=this.getLastSync()||void 0;return this.getChanges(a({},e,{lastLocalSync:n}))},h.enableDebug=function(){return this.run({sql:"\n      INSERT OR REPLACE INTO "+this.synqPrefix+"_meta (meta_name, meta_value)\n      VALUES ('debug_on', '1')\n      RETURNING *;"})},h.disableDebug=function(){return this.run({sql:"\n      INSERT OR REPLACE INTO "+this.synqPrefix+"_meta (meta_name, meta_value)\n      VALUES ('debug_on', '0')\n      RETURNING *;"})},h.clearDebugData=function(){this.run({sql:"DELETE FROM "+this._synqPrefix+"_dump"}),this.run({sql:"UPDATE SQLITE_SEQUENCE SET seq = 0 WHERE name = "+this._synqPrefix+"_dump"})},h.enableTriggers=function(){return this.run({sql:"\n      INSERT OR REPLACE INTO "+this.synqPrefix+"_meta (meta_name, meta_value)\n      VALUES ('triggers_on', '1');"})},h.disableTriggers=function(){return this.run({sql:"\n      INSERT OR REPLACE INTO "+this.synqPrefix+"_meta (meta_name, meta_value)\n      VALUES ('triggers_on', '0');"})},h.beginTransaction=function(){var e="SP"+Date.now();return this.run({sql:"SAVEPOINT "+e+";"}),e},h.commitTransaction=function(e){return this.run({sql:"RELEASE SAVEPOINT "+e.savepoint+";"})},h.rollbackTransaction=function(e){return this.run({sql:"ROLLBACK TRANSACTION TO SAVEPOINT "+e.savepoint+";"})},h.getRecord=function(e){var n=e.table_name,t=e.row_id,r=this.getTableIdColumn({table_name:n}),a=this.runQuery({sql:"SELECT * FROM "+n+" WHERE "+r+" = ?",values:[t]});return this.log.debug("@getRecord",a),a[0]},h.getById=function(e){return this.getRecord({table_name:e.table_name,row_id:e.row_id})},h.insertRecordMeta=function(e){var n=e.change,t=e.vclock,r={table_name:n.table_name,row_id:n.row_id,mod:t[this._deviceId]||0,vclock:JSON.stringify(t)};return this.runQuery({sql:"\n      INSERT INTO "+this._synqPrefix+"_record_meta (table_name, row_id, mod, vclock)\n      VALUES (:table_name, :row_id, :mod, :vclock)\n      ON CONFLICT DO UPDATE SET mod = :mod, vclock = :vclock\n      RETURNING *\n      ",values:r})},h.getRecordMeta=function(e){var n=e.table_name,t=e.row_id;return this.db.prepare("\n    SELECT *\n    FROM "+this.synqPrefix+"_record_meta\n    WHERE table_name = :table_name\n    AND row_id = :row_id").get({table_name:n,row_id:t})},h.getPending=function(){return this.runQuery({sql:"\n    SELECT *\n    FROM "+this._synqPrefix+"_pending\n    ORDER BY id ASC\n    "})},h.processOutOfOrderChange=function(e){var n=e.change,t=function(e,n){if(null==e)return{};var t,r,a={},i=Object.keys(e);for(r=0;r<i.length;r++)n.indexOf(t=i[r])>=0||(a[t]=e[t]);return a}(n,c),r=this.createInsertFromSystemObject({data:t,table_name:this._synqPrefix+"_pending"});this.log.trace("@processOutOfOrderChange\n",r,n);var i=a({},t);i.vclock=JSON.stringify(t.vclock);var o=this.runQuery({sql:r,values:i});return this.log.trace("@processOutOfOrderChange\n",{res:o}),o},h.processConflictedChange=function(e){var n=e.record,t=e.change;if(t.operation===s.INSERT)return!0;var r=this.getRecordMeta(a({},t));return this.log.trace("<<<@ processConflictedChange LLW @>>>",t.id,t.table_name,t.row_id,{record:n,localMeta:r,change:t}),t.modified>r.modified?(this.log.trace("<!> INTEGRATING REMOTE",t.id,t.table_name,t.row_id),!0):(this.log.warn("<!> KEEPING LOCAL",t.id,t.table_name,t.row_id),!1)},h.preProcessChange=function(e){var n=e.change,t=e.restore,r="unknown",a=!1,i=r,o=this.deviceId,s=n.table_name,l=n.row_id,c=n.vclock,u=void 0===c?{}:c,d=this.getRecord({table_name:s,row_id:l}),_=this.getRecordMeta({table_name:s,row_id:l}),T=null!=_&&_.vclock?JSON.parse(_.vclock):{},m={},f=new E({local:T,remote:u,localId:o,localTime:null==_?void 0:_.modified,remoteTime:n.modified}),h=!1,v=!1,I=!1;return t||d||"INSERT"===n.operation?!t&&d&&T&&T[o]||(m=n.vclock):(i="update before insert",this.processOutOfOrderChange({change:n})),t?{valid:a=!0,reason:i="restoration",vclock:m=f.merge(),checks:{stale:I,displaced:h,conflicted:v}}:((h=f.isOutOfOrder())?(i="received out of order",this.processOutOfOrderChange({change:n})):(v=f.isConflicted())?(a=this.processConflictedChange({record:d,change:n}))?m=f.merge():i="concurrent writes":(I=f.isOutDated())?i="stale":i===r&&(a=!0,i="",m=f.merge()),this.log.debug({table_name:s,row_id:l,conflicted:v,displaced:h,stale:I}),{valid:a,reason:i,vclock:m,checks:{stale:I,displaced:h,conflicted:v}})},h.createInsertFromObject=function(e){var n=e.data,t=e.table_name,r=Object.keys(n).join(","),a=this._synqTables[t].editable||[],i=Object.keys(n).filter(function(e){return a.includes(e)}).map(function(e){return e+" = :"+e}).join(",");if(!i)throw new Error("No changes available");return"\n      INSERT INTO "+t+" ("+r+")\n      VALUES ("+Object.keys(n).map(function(e){return":"+e}).join(",")+")\n      ON CONFLICT DO UPDATE SET "+i+"\n      RETURNING *;"},h.createInsertFromSystemObject=function(e){var n=e.data,t=e.table_name;this.log.silly("@createInsert...",{data:n});var r=Object.keys(n).join(","),a=Object.keys(n).map(function(e){return e+" = :"+e}).join(",");if(!a)throw new Error("No changes availble");return"\n      INSERT INTO "+t+" ("+r+")\n      VALUES ("+Object.keys(n).map(function(e){return":"+e}).join(",")+")\n      ON CONFLICT DO UPDATE SET "+a+"\n      RETURNING *;"},h.updateLastSync=function(e){var n=e.change;this.run({sql:"INSERT OR REPLACE INTO "+this.synqPrefix+"_meta (meta_name, meta_value) VALUES(:name, STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))",values:{name:"last_local_sync"}}),this.run({sql:"INSERT OR REPLACE INTO "+this.synqPrefix+"_meta (meta_name, meta_value) VALUES(:name, :value)",values:{name:"last_sync",value:n.id}})},h.applyChange=function(e){var n=e.change,t=e.restore,r=e.savepoint;try{var a=this;return Promise.resolve(function(e,r){try{var i=function(){function e(){a.updateLastSync({change:n});var e=a.insertRecordMeta({change:n,vclock:r.vclock});a.log.silly({updatedRecordMeta:e})}var r=a.preProcessChange({change:n,restore:t});if(!r.valid)return a.log.warn(r),void a.updateLastSync({change:n});var i,o=a.synqTables[n.table_name];if(!n.data)throw new Error("Cannot perform update with empty data:\n"+JSON.stringify(n,null,2));try{i=JSON.parse(n.data)}catch(e){throw a.log.debug(n),new Error("Invalid data for insert or update")}if(!o)throw new Error("Unable to find table "+n.table_name);a.log.silly("@applyChange",{change:n,table:o,changeStatus:r});var s=function(e,n){var t,r=-1;e:{for(var a=0;a<n.length;a++){var i=n[a][0];if(i){var o=i();if(o&&o.then)break e;if(o===e){r=a;break}}else r=a}if(-1!==r){do{for(var s=n[r][1];!s;)r++,s=n[r][1];var l=s();if(l&&l.then){t=!0;break e}var E=n[r][2];r++}while(E&&!E());return l}}var c=new d,_=u.bind(null,c,2);return(t?l.then(T):o.then(function t(o){for(;;){if(o===e){r=a;break}if(++a===n.length){if(-1!==r)break;return void u(c,1,l)}if(i=n[a][0]){if((o=i())&&o.then)return void o.then(t).then(void 0,_)}else r=a}do{for(var s=n[r][1];!s;)r++,s=n[r][1];var l=s();if(l&&l.then)return void l.then(T).then(void 0,_);var E=n[r][2];r++}while(E&&!E());u(c,1,l)})).then(void 0,_),c;function T(e){for(;;){var t=n[r][2];if(!t||t())break;r++;for(var a=n[r][1];!a;)r++,a=n[r][1];if((e=a())&&e.then)return void e.then(T).then(void 0,_)}u(c,1,e)}}(n.operation,[[function(){return"INSERT"}],[function(){return"UPDATE"},function(){var e=a.createInsertFromObject({data:i,table_name:n.table_name});return Promise.resolve(a.run({sql:e,values:i})).then(function(){})}],[function(){return"DELETE"},function(){var e="DELETE FROM "+n.table_name+" WHERE "+o.id+" = ?";return a.log.warn(">>> DELETE SQL <<<",e,n.row_id),Promise.resolve(a.run({sql:e,values:[n.row_id]})).then(function(){})}]]);return s&&s.then?s.then(e):e()}()}catch(e){return r(e)}return i&&i.then?i.then(void 0,r):i}(0,function(e){return Promise.resolve(a.rollbackTransaction({savepoint:r})).then(function(){throw a.log.error("Error applying change: "+e+". Rolled back."),e})}))}catch(e){return Promise.reject(e)}},h.applyChangesToLocalDB=function(e){var n=e.changes,t=e.restore,r=void 0!==t&&t;this.disableTriggers();for(var a=0;a<n.length;a+=this.synqBatchSize){var i=n.slice(a,a+this.synqBatchSize),s=this.beginTransaction();try{for(var l,E=o(i);!(l=E()).done;)this.applyChange({change:l.value,restore:r,savepoint:s});this.commitTransaction({savepoint:s})}catch(e){this.rollbackTransaction({savepoint:s}),this.log.error("Transaction failed, changes rolled back: "+e)}}this.enableTriggers(),this.log.silly("Applied "+n.length+" change(s)")},h.tablesReady=function(){this.enableTriggers()},m=i,(f=[{key:"db",get:function(){return this._db}},{key:"dbPath",get:function(){return this._dbPath}},{key:"deviceId",get:function(){return this._deviceId}},{key:"synqDbId",get:function(){return this._deviceId}},{key:"synqPrefix",get:function(){return this._synqPrefix}},{key:"synqTables",get:function(){return this._synqTables}},{key:"synqBatchSize",get:function(){return this._synqBatchSize}},{key:"wal",get:function(){return this._wal}}])&&function(e,n){for(var t=0;t<n.length;t++){var a=n[t];a.enumerable=a.enumerable||!1,a.configurable=!0,"value"in a&&(a.writable=!0),Object.defineProperty(e,r(a.key),a)}}(m.prototype,f),Object.defineProperty(m,"prototype",{writable:!1}),i}(),f=function(n){var t=n.tables,r=n.preInit,i=n.postInit,s=n.logOptions,l=n.debug;if(null==t||!t.length)throw new Error("Syncable table data required");var E=new e(a({name:"tinysync-setup"},s)),c=new m(n),u=function(e){var n=e.table,t=e.remove,r=void 0!==t&&t?"OLD":"NEW",a="\n    INSERT INTO "+c.synqPrefix+"_record_meta (table_name, row_id, mod, vclock)\n    SELECT table_name, row_id, mod, vclock\n    FROM (\n      SELECT\n        1 as peg,\n        '"+n.name+"' as table_name,\n        "+r+"."+n.id+" as row_id, \n        IFNULL(json_extract(vclock,'$."+c.deviceId+"'), 0) + 1 as mod, \n        json_set(IFNULL(json_extract(vclock, '$'),'{}'), '$."+c.deviceId+"', IFNULL(json_extract(vclock,'$."+c.deviceId+"'), 0) + 1) as vclock\n      FROM "+c.synqPrefix+"_record_meta\n      WHERE table_name = '"+n.name+"'\n      AND row_id = "+r+"."+n.id+"\n      UNION\n      SELECT 0 as peg, '"+n.name+"' as table_name, "+r+"."+n.id+" as row_id, 1, json_object('"+c.deviceId+"', 1) as vclock\n    )\n    ORDER BY peg DESC\n    LIMIT 1\n    ON CONFLICT DO UPDATE SET\n      mod = json_extract(excluded.vclock,'$."+c.deviceId+"'),\n      vclock = json_extract(excluded.vclock,'$')\n    ;";return E.silly(a),a},d=function(e){var n=e.table;E.debug("Setting up triggers for",n.name);var t=c.runQuery({sql:"\n      SELECT 'json_object(' || GROUP_CONCAT('''' || name || ''', NEW.' || name, ',') || ')' AS jo\n      FROM pragma_table_info('"+n.name+"');"})[0];E.silly("@jsonObject",JSON.stringify(t,null,2)),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_after_insert_"+n.name}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_after_update_"+n.name}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_after_delete_"+n.name});var r="\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_after_insert_"+n.name+"\n      AFTER INSERT ON "+n.name+"\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'triggers_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_changes (table_name, row_id, operation, data)\n        VALUES ('"+n.name+"', NEW."+n.id+", 'INSERT', "+t.jo+");\n\n        "+u({table:n})+"\n      END;";c.run({sql:r}),c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_after_update_"+n.name+"\n      AFTER UPDATE ON "+n.name+"\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'triggers_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_changes (table_name, row_id, operation, data)\n        VALUES ('"+n.name+"', NEW."+n.id+", 'UPDATE', "+t.jo+");\n\n        "+u({table:n})+"\n      END;"}),c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_after_delete_"+n.name+"\n      AFTER DELETE ON "+n.name+"\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'triggers_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_changes (table_name, row_id, operation) VALUES ('"+n.name+"', OLD."+n.id+", 'DELETE');\n        \n        "+u({table:n,remove:!0})+"\n      END;"}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_dump_after_insert_"+n.name}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_dump_after_update_"+n.name}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_dump_after_delete_"+n.name}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_dump_before_insert_record_meta"}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_dump_after_insert_record_meta"}),c.run({sql:"DROP TRIGGER IF EXISTS "+c.synqPrefix+"_dump_after_update_record_meta"}),c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_dump_after_insert_"+n.name+"\n      AFTER INSERT ON "+n.name+"\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'debug_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_dump (table_name, operation, data)\n        VALUES ('"+n.name+"', 'INSERT', "+t.jo+");\n      END;"}),c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_dump_after_update_"+n.name+"\n      AFTER UPDATE ON "+n.name+"\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'debug_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_dump (table_name, operation, data) VALUES ('"+n.name+"', 'UPDATE', "+t.jo+");\n      END;"});var a=t.jo.replace(/NEW/g,"OLD");c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_dump_after_delete_"+n.name+"\n      AFTER DELETE ON "+n.name+"\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'debug_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_dump (table_name, operation, data) VALUES ('"+n.name+"', 'DELETE', "+a+");\n      END;"}),c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_dump_before_insert_record_meta\n      BEFORE INSERT ON "+c.synqPrefix+"_record_meta\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'debug_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_dump (table_name, operation, data)\n        VALUES (NEW.table_name, 'BEFORE_INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));\n      END;"}),c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_dump_after_insert_record_meta\n      AFTER INSERT ON "+c.synqPrefix+"_record_meta\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'debug_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_dump (table_name, operation, data)\n        VALUES ('"+n.name+"', 'AFTER_INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));\n      END;"}),c.run({sql:"\n      CREATE TRIGGER IF NOT EXISTS "+c.synqPrefix+"_dump_after_update_record_meta\n      AFTER UPDATE ON "+c.synqPrefix+"_record_meta\n      FOR EACH ROW\n      WHEN (SELECT meta_value FROM "+c.synqPrefix+"_meta WHERE meta_name = 'debug_on')='1'\n      BEGIN\n        INSERT INTO "+c.synqPrefix+"_dump (table_name, operation, data)\n        VALUES ('"+n.name+"', 'AFTER_UPDATE', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));\n      END;"})};if(c.run({sql:"\n    CREATE TABLE IF NOT EXISTS "+c.synqPrefix+"_changes (\n      id INTEGER PRIMARY KEY AUTOINCREMENT,\n      table_name TEXT NOT NULL,\n      row_id TEXT NOT NULL,\n      data BLOB,\n      operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE'\n      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))\n    );"}),c.run({sql:"CREATE INDEX IF NOT EXISTS "+c.synqPrefix+"_change_modified_idx ON "+c.synqPrefix+"_changes(modified)"}),c.run({sql:"\n    CREATE TABLE IF NOT EXISTS "+c.synqPrefix+"_pending (\n      id INTEGER PRIMARY KEY AUTOINCREMENT,\n      table_name TEXT NOT NULL,\n      row_id TEXT NOT NULL,\n      data BLOB,\n      operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE',\n      vclock BLOB NOT NULL,\n      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))\n    );"}),c.run({sql:"CREATE INDEX IF NOT EXISTS "+c.synqPrefix+"_pending_table_row_idx ON "+c.synqPrefix+"_pending(table_name, row_id)"}),c.run({sql:"\n    CREATE TABLE IF NOT EXISTS "+c.synqPrefix+"_notice (\n      id INTEGER PRIMARY KEY AUTOINCREMENT,\n      table_name TEXT NOT NULL,\n      row_id TEXT NOT NULL,\n      conflict BLOB,\n      message TEXT NOT NULL,\n      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))\n    );"}),c.run({sql:"\n    CREATE TABLE IF NOT EXISTS "+c.synqPrefix+"_record_meta (\n      id INTEGER PRIMARY KEY AUTOINCREMENT,\n      table_name TEXT NOT NULL,\n      row_id TEXT NOT NULL,\n      mod INTEGER,\n      vclock BLOB,\n      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))\n    );"}),c.run({sql:"CREATE UNIQUE INDEX IF NOT EXISTS "+c.synqPrefix+"_record_meta_idx ON "+c.synqPrefix+"_record_meta(table_name, row_id)"}),c.run({sql:"\n    CREATE TABLE IF NOT EXISTS "+c.synqPrefix+"_meta (\n      meta_name TEXT NOT NULL PRIMARY KEY,\n      meta_value TEXT NOT NULL\n    );\n  "}),c.run({sql:"\n    CREATE TABLE IF NOT EXISTS "+c.synqPrefix+"_dump (\n      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW')), \n      table_name TEXT NOT NULL,\n      operation TEXT,\n      data BLOB\n    );\n  "}),c.run({sql:"CREATE INDEX IF NOT EXISTS "+c.synqPrefix+"_meta_name_idx ON "+c.synqPrefix+"_meta(meta_name)"}),l&&c.enableDebug(),c.setDeviceId(),null!=r&&r.length)for(var _,T=o(r);!(_=T()).done;){var f=_.value;E.debug("\n@@@ preInit\n"+f+"\n@@@"),c.run({sql:f})}E.debug("@"+c.synqPrefix+"_meta",c.runQuery({sql:"SELECT * FROM pragma_table_info('"+c.synqPrefix+"_meta')"})),E.debug("@SIMPLE_SELECT",c.runQuery({sql:"SELECT '@@@ that was easy @@@'"}));for(var h,v=o(t);!(h=v()).done;){var I=h.value,R=c.runQuery({sql:"SELECT * FROM pragma_table_info('"+I.name+"')"});if(E.debug("@exists?",I.name,R),null==R||!R.length)throw new Error(I.name+" doesn't exist");E.debug("Setting up",I.name,I.id),d({table:I}),c.tablesReady()}if(null!=i&&i.length)for(var N,O=o(i);!(N=O()).done;){var g=N.value;E.debug("@@@\npostInit\n"+g+"\n@@@"),c.run({sql:g})}return c};export{f as default};
+import { Logger } from 'tslog';
+import 'dotenv/config';
+import DB from 'better-sqlite3';
+import { nanoid } from 'nanoid';
+import * as uWS from 'uWebSockets.js';
+import { threadId } from 'worker_threads';
+
+const env = process.env;
+
+var TinySynqOperation;
+(function (TinySynqOperation) {
+  TinySynqOperation["INSERT"] = "INSERT";
+  TinySynqOperation["UPDATE"] = "UPDATE";
+  TinySynqOperation["DELETE"] = "DELETE";
+})(TinySynqOperation || (TinySynqOperation = {}));
+var SyncRequestType;
+(function (SyncRequestType) {
+  SyncRequestType["push"] = "push";
+  SyncRequestType["pull"] = "pull";
+})(SyncRequestType || (SyncRequestType = {}));
+var SyncResponseType;
+(function (SyncResponseType) {
+  SyncResponseType["ack"] = "ack";
+  SyncResponseType["nack"] = "nack";
+})(SyncResponseType || (SyncResponseType = {}));
+var LogLevel;
+(function (LogLevel) {
+  LogLevel[LogLevel["Silly"] = 0] = "Silly";
+  LogLevel[LogLevel["Trace"] = 1] = "Trace";
+  LogLevel[LogLevel["Debug"] = 2] = "Debug";
+  LogLevel[LogLevel["Info"] = 3] = "Info";
+  LogLevel[LogLevel["Warn"] = 4] = "Warn";
+  LogLevel[LogLevel["Error"] = 5] = "Error";
+  LogLevel[LogLevel["Fatal"] = 6] = "Fatal";
+})(LogLevel || (LogLevel = {}));
+
+class VCompare {
+  constructor({
+    local,
+    remote,
+    localId,
+    localTime,
+    remoteTime
+  }) {
+    this.local = void 0;
+    this.isGreater = false;
+    this.isLess = false;
+    this.isWrongOrder = false;
+    this.remote = {};
+    this.localId = void 0;
+    this.localTime = void 0;
+    this.remoteTime = void 0;
+    this.local = local;
+    this.remote = typeof remote === 'string' ? JSON.parse(remote) : remote;
+    this.localId = localId;
+    this.localTime = localTime;
+    this.remoteTime = remoteTime;
+  }
+  setRemote({
+    remote
+  }) {
+    this.remote = remote;
+  }
+  isConflicted(data) {
+    const remote = (data == null ? void 0 : data.remote) || this.remote;
+    const keys = Object.keys({
+      ...this.local,
+      ...remote
+    });
+    keys.forEach(k => {
+      const localCount = this.local[k] || 0;
+      const remoteCount = remote[k] || 0;
+      this.isGreater = this.isGreater || localCount > remoteCount;
+      this.isLess = this.isLess || localCount < remoteCount;
+    });
+    return this.isGreater && this.isLess;
+  }
+  isOutDated() {
+    // Default localTime to any early date so that 
+    // remote always wins when local is empty.
+    const {
+      remoteTime,
+      localTime = new Date('1970-01-01').toISOString()
+    } = this;
+    if (!remoteTime || !localTime) throw new Error('Missing modified time');
+    return localTime >= remoteTime;
+  }
+  isOutOfOrder() {
+    const {
+      remote,
+      local,
+      localId
+    } = this;
+    if (!remote || !local) throw new Error('Remote vector clock not set');
+    const keys = Object.keys({
+      ...this.local,
+      ...remote
+    }).filter(k => k !== localId);
+    for (let i = 0; i < keys.length; i++) {
+      var _local$k, _remote$k;
+      const k = keys[i];
+      const drift = Math.abs(((_local$k = local[k]) != null ? _local$k : 0) - ((_remote$k = remote[k]) != null ? _remote$k : 0));
+      this.isWrongOrder = drift > 1;
+    }
+    return this.isWrongOrder;
+  }
+  merge() {
+    const merged = {};
+    const participants = new Set(Object.keys(this.local).concat(Object.keys(this.remote)));
+    // If the incoming participant vclock is lower, discard
+    for (const p of participants) {
+      const localP = this.local[p] || 0;
+      const remoteP = this.remote[p] || 0;
+      merged[p] = Math.max(localP, remoteP);
+    }
+    if (merged[this.localId] === undefined) {
+      merged[this.localId] = 0;
+    }
+    return merged;
+  }
+}
+
+const SYNQ_INSERT = 'INSERT';
+
+var _env$TINYSYNQ_LOG_LEV;
+const log$1 = new Logger({
+  name: 'tinysync-node',
+  minLevel: (_env$TINYSYNQ_LOG_LEV = env.TINYSYNQ_LOG_LEVEL) != null ? _env$TINYSYNQ_LOG_LEV : LogLevel.Info,
+  type: env.TINYSYNQ_LOG_FORMAT || 'json'
+});
+const strtimeAsISO8601 = `STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')`;
+/**
+ * The main class for managing SQLite3 synchronisation.
+ *
+ * @remarks
+ * Expects SQLite3 version \>=3.45.1
+ *
+ * @public
+ */
+class TinySynq {
+  /**
+   * Configure new TinySynq instance.
+   *
+   * @param opts - Configuration options
+   */
+  constructor(opts) {
+    var _opts$prefix, _opts$wal;
+    this._db = void 0;
+    this._dbPath = void 0;
+    this._deviceId = void 0;
+    this._synqPrefix = void 0;
+    this._synqTables = void 0;
+    this._synqBatchSize = 20;
+    this._wal = true;
+    this.log = void 0;
+    /**
+     * Basic Helpers.
+     *
+     * @TODO move to a separate file.
+     *
+     * @public
+     */
+    this.utils = {
+      strtimeAsISO8601,
+      nowAsISO8601: strtimeAsISO8601,
+      utcNowAsISO8601: () => {
+        return new Date().toISOString().replace('Z', '');
+      }
+    };
+    if (!opts.filePath && !opts.sqlite3) {
+      throw new Error('No DB filePath or connection provided');
+    }
+    const _synqTables = {};
+    opts.tables.forEach(t => {
+      _synqTables[t.name] = t;
+    });
+    this._dbPath = opts.filePath || '';
+    this._db = opts.sqlite3 || undefined;
+    this._synqPrefix = (_opts$prefix = opts.prefix) == null ? void 0 : _opts$prefix.trim().replace(/[^a-z0-9]+$/i, '');
+    this._synqTables = _synqTables;
+    this._synqBatchSize = opts.batchSize || this._synqBatchSize;
+    this._wal = (_opts$wal = opts.wal) != null ? _opts$wal : false;
+    this.log = new Logger({
+      name: 'tinysync-node',
+      minLevel: LogLevel.Debug,
+      type: 'json',
+      maskValuesOfKeys: ['password', 'encryption_key'],
+      hideLogPositionForProduction: true,
+      ...(opts.logOptions || {})
+    });
+    if (!this.db) {
+      this._db = new DB(this.dbPath);
+      this.db.pragma('journal_mode = WAL');
+    }
+  }
+  /**
+   * better-sqlite3 instance (See {@link https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md | BetterSqlite3})
+   */
+  get db() {
+    return this._db;
+  }
+  /**
+   * Path to DB file
+   *
+   * @example
+   *
+   * `./app.db` or `/tmp/app.db`
+   */
+  get dbPath() {
+    return this._dbPath;
+  }
+  /**
+   * Automatically generated ID for device's DB instance.
+   *
+   * @remarks
+   *
+   * This ID is used by the sync protocol to identify the database.
+   * One it is generated once during setup and does not change. The
+   * value is stored in the `_meta` table (`meta_name='device_id'`).
+   * __Do not edit this value; doing so would corrupt synchronisation__.
+   */
+  get deviceId() {
+    return this._deviceId;
+  }
+  /**
+   * Alias for {@link TinySynq.deviceId}.
+   */
+  get synqDbId() {
+    return this._deviceId;
+  }
+  /**
+   * The prefix used for TinySynq's tables.
+   *
+   * @defaultValue `tinysync`
+   */
+  get synqPrefix() {
+    return this._synqPrefix;
+  }
+  /**
+   * Object containing {@link SyncableTable}s, keyed by table name.
+   *
+   * @remarks
+   *
+   * A {@link SyncableTable} structure is never modified. TinySynq maintains
+   * its own tables and triggers for tracking and responding to changes.
+   *
+   * @returns Record\<string, SyncableTable\>
+   */
+  get synqTables() {
+    return this._synqTables;
+  }
+  /**
+   * Number of records to process in each batch when syncing changes.
+   */
+  get synqBatchSize() {
+    return this._synqBatchSize;
+  }
+  /**
+   * Enable or disable WAL mode.
+   *
+   * @defaultValue true
+   */
+  get wal() {
+    return this._wal;
+  }
+  /**
+   * Get a random 16-character ID generated by nanoid
+   *
+   * @returns string
+   */
+  getNewId() {
+    return nanoid(16);
+  }
+  /**
+   * Get the column used as identifier for the {@link SyncableTable}.
+   *
+   * @param params - Details of table for which to retrieve ID column.
+   * @returns Column name
+   */
+  getTableIdColumn(params) {
+    var _this$synqTables$tabl;
+    const {
+      table_name
+    } = params;
+    return (_this$synqTables$tabl = this.synqTables[table_name]) == null ? void 0 : _this$synqTables$tabl.id;
+  }
+  /**
+   * If not already set, generates and sets deviceId.
+   */
+  setDeviceId() {
+    var _existing, _existing2;
+    // Set the device ID
+    let existing;
+    try {
+      existing = this.runQuery({
+        sql: `SELECT meta_value FROM ${this.synqPrefix}_meta WHERE meta_name = 'device_id'`
+      })[0];
+    } catch (err) {
+      this.log.warn(`Couldn't retrieve device ID`);
+    }
+    log$1.info('@device_id', existing);
+    if (!((_existing = existing) != null && _existing.meta_value)) {
+      const res = this.runQuery({
+        sql: `INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES (?,?) RETURNING *`,
+        values: ['device_id', nanoid(16)]
+      });
+      log$1.info('@created record for device_id:', res[0].meta_value);
+      existing = res[0];
+    }
+    this._deviceId = (_existing2 = existing) == null ? void 0 : _existing2.meta_value;
+  }
+  /**
+   * Run an operation against the DB
+   *
+   * @remarks
+   * This method does not return any records, only the result of the operation.
+   *
+   * @param params - The SQL query and optionally any values.
+   * @returns
+   */
+  run(params) {
+    const {
+      sql,
+      values
+    } = params;
+    const quid = Math.ceil(Math.random() * 1000000);
+    this.log.debug('@run', quid, sql, values, '/');
+    try {
+      const result = this.db.prepare(sql).run(values || []);
+      this.log.debug({
+        quid,
+        result
+      });
+      return result;
+    } catch (err) {
+      this.log.error(quid, err);
+      return err;
+    }
+  }
+  /**
+   * Run multiple operations against the DB
+   *
+   * @remarks
+   * This method does not return any records.
+   *
+   * @param params - The SQL query and optionally an array of arrays or key/value pairs
+   * @returns Undefined or an error, if one occurred
+   */
+  runMany(params) {
+    const {
+      sql,
+      values
+    } = params;
+    const quid = Math.ceil(Math.random() * 1000000);
+    this.log.debug('@runMany', quid, sql, values, '/');
+    try {
+      const query = this.db.prepare(sql);
+      for (const v of values) {
+        query.run(v);
+      }
+      this.log.debug({
+        quid,
+        result: 'done'
+      });
+    } catch (err) {
+      this.log.error(quid, err);
+      return err;
+    }
+  }
+  /**
+   * Run an operation against the DB
+   *
+   * @param params - The SQL query and optionally any values
+   * @returns Array of records returned from the database
+   */
+  runQuery(params) {
+    const {
+      sql,
+      values
+    } = params;
+    const quid = Math.ceil(Math.random() * 1000000);
+    this.log.debug('@runQuery', {
+      quid,
+      sql,
+      values
+    });
+    try {
+      const result = this.db.prepare(sql).all(values || []);
+      this.log.debug({
+        quid,
+        result
+      });
+      return result;
+    } catch (err) {
+      this.log.error(quid, err);
+      return err;
+    }
+  }
+  /**
+   * Returns the current device's unique TinySynq ID.
+   *
+   * @returns The device's assigned ID.
+   */
+  getDeviceId() {
+    if (this._deviceId) return this._deviceId;
+    const res = this.runQuery({
+      sql: `
+        SELECT meta_value FROM ${this.synqPrefix}_meta
+        WHERE meta_name = 'device_id'`
+    });
+    return res[0].meta_value;
+  }
+  /**
+   * Returns an ISO8601 formatted date and time of the last successful local sync.
+   *
+   * @remarks
+   *
+   * A "local sync" is the process of sending local changes to the remote hub.
+   *
+   * @returns The time of the last sync.
+   */
+  getLastSync() {
+    var _res$;
+    const res = this.runQuery({
+      sql: `
+        SELECT meta_value FROM ${this.synqPrefix}_meta
+        WHERE meta_name = 'last_local_sync'`
+    });
+    this.log.trace('@getLastSync', res[0]);
+    return (_res$ = res[0]) == null ? void 0 : _res$.meta_value;
+  }
+  /**
+   * Returns matching {@link Change} objects since the last local sync.
+   *
+   * @remarks
+   *
+   * If `lastLocalSync` is empty, all changes are returned.
+   *
+   * @param params - Object containing retrieval parameters.
+   * @returns An array of {@link Change} objects.
+   */
+  getChanges(params) {
+    let lastLocalSync = (params == null ? void 0 : params.lastLocalSync) || this.getLastSync();
+    let {
+      columns = []
+    } = params || {};
+    this.log.debug('@getChanges', lastLocalSync);
+    let where = '';
+    let columnSelection = columns.map(c => c.replace(/[^*._a-z0-9]+/gi, '')).join(',') || '*';
+    if (lastLocalSync) {
+      where = 'WHERE c.modified > ?';
+    }
+    const sql = `
+      SELECT ${columnSelection}
+      FROM ${this._synqPrefix}_changes c
+      INNER JOIN ${this._synqPrefix}_record_meta trm
+      ON trm.table_name = c.table_name
+      AND trm.row_id = c.row_id
+      ${where}
+      ORDER BY c.modified ASC
+    `;
+    console.log(sql);
+    const values = lastLocalSync ? [lastLocalSync] : [];
+    this.log.debug(sql, values);
+    return this.runQuery({
+      sql,
+      values
+    });
+  }
+  /**
+   * Returns {@link Change} objects since the last local sync.
+   *
+   * @remarks
+   *
+   * If `lastLocalSync` is empty, all changes are returned.
+   *
+   * @param params - Object containing retrieval parameters.
+   * @returns An array of {@link Change} objects.
+   */
+  getChangesSinceLastSync(params) {
+    let lastLocalSync = this.getLastSync() || undefined; // @TODO: remove — getChanges already does this.
+    return this.getChanges({
+      ...params,
+      lastLocalSync
+    });
+  }
+  /**
+   * Writes debug mode value (true) which disables recording
+   * of operations on syncable tables.
+   *
+   * @remarks
+   *
+   * The value set by this method is checked by dedicated triggers.
+   * If the value is `1`, the active trigger writes the data to the
+   * `*_dump` table. It's worth purging the table data once done
+   * with debugging.
+   *
+   * @returns Result of the operation.
+   */
+  enableDebug() {
+    return this.run({
+      sql: `
+      INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value)
+      VALUES ('debug_on', '1')
+      RETURNING *;`
+    });
+  }
+  /**
+   * Writes debug mode value (false) which disables recording
+   * of operations on syncable tables.
+   *
+   * @see {@link TinySynq.enableDebug} for more details.
+   *
+   * @returns Result of the operation.
+   */
+  disableDebug() {
+    return this.run({
+      sql: `
+      INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value)
+      VALUES ('debug_on', '0')
+      RETURNING *;`
+    });
+  }
+  /**
+   * Empties the `*_dump` table.
+   *
+   * @see {@link TinySynq.enableDebug} for more details.
+   */
+  clearDebugData() {
+    this.run({
+      sql: `DELETE FROM ${this._synqPrefix}_dump`
+    });
+    this.run({
+      sql: `UPDATE SQLITE_SEQUENCE SET seq = 0 WHERE name = ${this._synqPrefix}_dump`
+    });
+  }
+  /**
+   * Writes value (true) which determines whether or not triggers on syncable
+   * tables are executed.
+   *
+   * @returns Result of operation.
+   */
+  enableTriggers() {
+    return this.run({
+      sql: `
+      INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value)
+      VALUES ('triggers_on', '1');`
+    });
+  }
+  /**
+   * Writes value (true) which determines whether or not triggers on syncable
+   * tables are executed.
+   *
+   * @returns Result of operation.
+   */
+  disableTriggers() {
+    return this.run({
+      sql: `
+      INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value)
+      VALUES ('triggers_on', '0');`
+    });
+  }
+  beginTransaction() {
+    const savepoint = `SP${Date.now()}`;
+    const sql = `SAVEPOINT ${savepoint};`;
+    this.run({
+      sql
+    });
+    return savepoint;
+  }
+  commitTransaction({
+    savepoint
+  }) {
+    const sql = `RELEASE SAVEPOINT ${savepoint};`;
+    return this.run({
+      sql
+    });
+  }
+  rollbackTransaction({
+    savepoint
+  }) {
+    const sql = `ROLLBACK TRANSACTION TO SAVEPOINT ${savepoint};`;
+    return this.run({
+      sql
+    });
+  }
+  /**
+   * Retrieves a single record.
+   *
+   * @param params - Object containing table/row parameters.
+   * @returns
+   */
+  getRecord(params) {
+    const {
+      table_name,
+      row_id
+    } = params;
+    const idCol = this.getTableIdColumn({
+      table_name: table_name
+    });
+    const sql = `SELECT * FROM ${table_name} WHERE ${idCol} = ?`;
+    const res = this.runQuery({
+      sql,
+      values: [row_id]
+    });
+    this.log.debug('@getRecord', res);
+    return res[0];
+  }
+  /**
+   * Retrieves a single record by it's ID.
+   *
+   * @remarks
+   *
+   * The column used to identify the record is according to the {@link SyncableTable}
+   * that was provided in {@link TinySynqOptionsBase.tables} at instantiation.
+   *
+   * @param params - Object containing table/row parameters.
+   * @returns
+   */
+  getById(params) {
+    const {
+      table_name,
+      row_id
+    } = params;
+    return this.getRecord({
+      table_name,
+      row_id
+    });
+  }
+  insertRecordMeta({
+    change,
+    vclock
+  }) {
+    this.log.trace('<<< @insertRecordMeta >>>', {
+      change,
+      vclock
+    });
+    const {
+      table_name,
+      row_id,
+      source
+    } = change;
+    const mod = vclock[this._deviceId] || 0;
+    const values = {
+      table_name,
+      row_id,
+      mod,
+      source,
+      vclock: JSON.stringify(vclock),
+      modified: this.utils.utcNowAsISO8601()
+    };
+    this.log.trace("@insertRecordMeta", {
+      values
+    });
+    return this.runQuery({
+      sql: `
+      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, source, mod, vclock)
+      VALUES (:table_name, :row_id, :source, :mod, :vclock)
+      ON CONFLICT DO UPDATE SET source = :source, mod = :mod, vclock = :vclock, modified = :modified
+      RETURNING *
+      `,
+      values
+    });
+  }
+  /**
+   * Get associated meta data (including `vclock`) for record.
+   *
+   * @param params - Object containing table/row parameters.
+   *
+   * @returns Object containing row data from `*_record_meta`.
+   */
+  getRecordMeta(params) {
+    const {
+      table_name,
+      row_id
+    } = params;
+    const sql = `
+    SELECT *
+    FROM ${this.synqPrefix}_record_meta
+    WHERE table_name = :table_name
+    AND row_id = :row_id`;
+    const res = this.db.prepare(sql).get({
+      table_name,
+      row_id
+    });
+    return res;
+  }
+  /**
+   * Returns changes that couldn't be applied yet because they
+   * were received out of sequence.
+   *
+   * @returns Array of pending changes.
+   */
+  getPending() {
+    const sql = `
+    SELECT *
+    FROM ${this._synqPrefix}_pending
+    ORDER BY id ASC
+    `;
+    const res = this.runQuery({
+      sql
+    });
+    return res;
+  }
+  /**
+   * Creates new pending record to be applied later.
+   *
+   * @param opts - Options for processing out-of-order change
+   * @returns Newly created pending record
+   */
+  processOutOfOrderChange({
+    change
+  }) {
+    const {
+      id,
+      ...data
+    } = change;
+    const sql = this.createInsertFromSystemObject({
+      data,
+      table_name: `${this._synqPrefix}_pending`
+    });
+    this.log.trace('@processOutOfOrderChange\n', sql, change);
+    const values = {
+      ...data
+    };
+    values.vclock = JSON.stringify(data.vclock);
+    const res = this.runQuery({
+      sql,
+      values
+    });
+    this.log.trace('@processOutOfOrderChange\n', {
+      res
+    });
+    return res;
+  }
+  /**
+   * Determines whether to treat conflicted change as valid or invalid.
+   *
+   * @param opts - Options for processing concurrent change
+   * @returns boolean
+   */
+  processConflictedChange({
+    record,
+    change
+  }) {
+    // INSERT won't have a local record so accept the incoming change
+    if (change.operation === TinySynqOperation.INSERT) return true;
+    const localMeta = this.getRecordMeta({
+      ...change
+    });
+    this.log.trace('<<<@ processConflictedChange LLW @>>>', change.id, change.table_name, change.row_id, {
+      record,
+      localMeta,
+      change
+    });
+    if (change.modified > localMeta.modified) {
+      this.log.trace('<!> INTEGRATING REMOTE', change.id, change.table_name, change.row_id);
+      // Update local with the incoming changes
+      return true;
+    } else {
+      this.log.trace('<!> KEEPING LOCAL', change.id, change.table_name, change.row_id);
+      // Keep the local change, but record receipt of the record.
+      return false;
+    }
+  }
+  /**
+   * Checks for and handles issues with incoming change to be applied.
+   *
+   * @returns Result of pre-processing.
+   */
+  preProcessChange({
+    change,
+    restore
+  }) {
+    let defaultReason = 'unknown';
+    let valid = false;
+    let reason = defaultReason;
+    const localId = this.deviceId;
+    const {
+      table_name,
+      row_id,
+      vclock: remote = {}
+    } = change;
+    const record = this.getRecord({
+      table_name,
+      row_id
+    });
+    const meta = this.getRecordMeta({
+      table_name,
+      row_id
+    });
+    const local = meta != null && meta.vclock ? JSON.parse(meta.vclock) : {};
+    const localTime = meta == null ? void 0 : meta.modified;
+    const remoteTime = change.modified;
+    let latest = {};
+    const localV = new VCompare({
+      local,
+      remote,
+      localId,
+      localTime,
+      remoteTime
+    });
+    let displaced = false;
+    let conflicted = false;
+    let stale = false;
+    // If we don't have the record, treat it as new
+    if (!restore && !record && change.operation !== SYNQ_INSERT) {
+      reason = 'update before insert';
+      this.processOutOfOrderChange({
+        change
+      });
+    } else if (restore || !record || !local || !local[localId]) {
+      latest = change.vclock;
+    }
+    if (restore) {
+      valid = true;
+      reason = 'restoration';
+      latest = localV.merge();
+      return {
+        valid,
+        reason,
+        vclock: latest,
+        checks: {
+          stale,
+          displaced,
+          conflicted
+        }
+      };
+    } else if (displaced = localV.isOutOfOrder()) {
+      reason = 'received out of order';
+      this.processOutOfOrderChange({
+        change
+      });
+    } else if (conflicted = localV.isConflicted()) {
+      valid = this.processConflictedChange({
+        record,
+        change
+      });
+      if (!valid) {
+        reason = 'concurrent writes';
+      } else {
+        latest = localV.merge();
+      }
+    } else if (stale = localV.isOutDated()) {
+      reason = 'stale';
+    } else if (reason === defaultReason) {
+      valid = true;
+      reason = '';
+      latest = localV.merge();
+    }
+    this.log.debug({
+      table_name,
+      row_id,
+      conflicted,
+      displaced,
+      stale
+    });
+    return {
+      valid,
+      reason,
+      vclock: latest,
+      checks: {
+        stale,
+        displaced,
+        conflicted
+      }
+    };
+  }
+  /**
+   * Creates an insert query based on the syncable table name and data provided.
+   *
+   * @remarks
+   *
+   * This method is specifically for tables that have been registerd as syncable
+   * by passing them in as a {@link SyncableTable} at instantiation.
+   *
+   * @see {@link SyncableTable} for more information.
+   *
+   * @param param0 - Parameters from which to create the query.
+   * @returns A SQL query string.
+   */
+  createInsertFromObject({
+    data,
+    table_name: table
+  }) {
+    const columnsToInsert = Object.keys(data).join(',');
+    const editable = this._synqTables[table].editable || [];
+    const updates = Object.keys(data).filter(key => editable.includes(key)).map(k => `${k} = :${k}`).join(',');
+    if (!updates) throw new Error('No changes available');
+    const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
+    const insertSql = `
+      INSERT INTO ${table} (${columnsToInsert})
+      VALUES (${insertPlaceholders})
+      ON CONFLICT DO UPDATE SET ${updates}
+      RETURNING *;`;
+    return insertSql;
+  }
+  /**
+   * Creates an insert query based on the system table name and data provided.
+   *
+   * @param param0 - Parameters from which to create the query.
+   *
+   * @returns A SQL query string.
+   */
+  createInsertFromSystemObject({
+    data,
+    table_name: table
+  }) {
+    this.log.silly('@createInsert...', {
+      data
+    });
+    const columnsToInsert = Object.keys(data).join(',');
+    const updates = Object.keys(data).map(k => `${k} = :${k}`).join(',');
+    if (!updates) throw new Error('No changes availble');
+    const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
+    const insertSql = `
+      INSERT INTO ${table} (${columnsToInsert})
+      VALUES (${insertPlaceholders})
+      ON CONFLICT DO UPDATE SET ${updates}
+      RETURNING *;`;
+    return insertSql;
+  }
+  updateLastSync({
+    change
+  }) {
+    this.run({
+      sql: `INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES(:name, STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))`,
+      values: {
+        name: 'last_local_sync'
+      }
+    });
+    this.run({
+      sql: `INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES(:name, :value)`,
+      values: {
+        name: 'last_sync',
+        value: change.id
+      }
+    });
+  }
+  async applyChange({
+    change,
+    restore,
+    savepoint
+  }) {
+    try {
+      // Check that the changes can actually be applied
+      const changeStatus = this.preProcessChange({
+        change,
+        restore
+      });
+      if (!changeStatus.valid) {
+        this.log.warn(changeStatus);
+        this.updateLastSync({
+          change
+        });
+        return;
+      }
+      const table = this.synqTables[change.table_name];
+      let recordData;
+      if (change.data) {
+        try {
+          recordData = JSON.parse(change.data);
+        } catch (err) {
+          this.log.debug(change);
+          throw new Error('Invalid data for insert or update');
+        }
+      } else {
+        // There's no data so bail
+        throw new Error(`Cannot perform update with empty data:\n${JSON.stringify(change, null, 2)}`);
+      }
+      if (!table) throw new Error(`Unable to find table ${change.table_name}`);
+      this.log.silly('@applyChange', {
+        change,
+        table,
+        changeStatus
+      });
+      switch (change.operation) {
+        case 'INSERT':
+        case 'UPDATE':
+          const insertSql = this.createInsertFromObject({
+            data: recordData,
+            table_name: change.table_name
+          });
+          await this.run({
+            sql: insertSql,
+            values: recordData
+          });
+          break;
+        case 'DELETE':
+          const sql = `DELETE FROM ${change.table_name} WHERE ${table.id} = ?`;
+          this.log.warn('>>> DELETE SQL <<<', sql, change.row_id);
+          await this.run({
+            sql,
+            values: [change.row_id]
+          });
+          break;
+      }
+      this.updateLastSync({
+        change
+      });
+      // Insert merged VClock data
+      const updatedRecordMeta = this.insertRecordMeta({
+        change,
+        vclock: changeStatus.vclock
+      });
+      this.log.silly({
+        updatedRecordMeta
+      });
+    } catch (error) {
+      await this.rollbackTransaction({
+        savepoint
+      });
+      this.log.error(`Error applying change: ${error}. Rolled back.`);
+      throw error; // Throw the error to trigger rollback
+    }
+  }
+  applyChangesToLocalDB({
+    changes,
+    restore = false
+  }) {
+    this.log.debug('\n<<< @CHANGES >>>\n', changes, '\n<<< @CHANGES >>>\n');
+    this.disableTriggers();
+    // Split changes into batches
+    for (let i = 0; i < changes.length; i += this.synqBatchSize) {
+      const batch = changes.slice(i, i + this.synqBatchSize);
+      // Create savepoint and apply each batch within a transaction
+      const savepoint = this.beginTransaction();
+      try {
+        for (const change of batch) {
+          this.applyChange({
+            change,
+            restore,
+            savepoint
+          });
+        }
+        // Commit the changes for this batch
+        this.commitTransaction({
+          savepoint
+        });
+      } catch (error) {
+        this.rollbackTransaction({
+          savepoint
+        });
+        this.log.error(`Transaction failed, changes rolled back: ${error}`);
+        // Handle transaction failure (e.g., log, retry logic, notification)
+      }
+    }
+    this.enableTriggers();
+    this.log.silly(`Applied ${changes.length} change(s)`);
+  }
+  /**
+   * Get items that have been recently changed.
+   *
+   * @param opts
+   */
+  getFilteredChanges(opts) {
+    let and = [];
+    let values = {};
+    if (opts != null && opts.exclude) {
+      and.push('source != :exclude');
+      values.exclude = opts.exclude;
+    }
+    if (opts != null && opts.checkpoint) {
+      and.push('id > :checkpoint');
+      values.checkpoint = opts.checkpoint;
+    } else if (opts != null && opts.since) {
+      and.push('modified > :since');
+      values.since = opts.since;
+    }
+    const sql = `
+    SELECT id, table_name, row_id, data, operation, source, vclock, modified
+    FROM ${this.synqPrefix}_changes
+    WHERE 1=1
+    ${and.join(' AND ')}
+    ORDER BY modified ASC`;
+    return this.runQuery({
+      sql,
+      values
+    });
+  }
+  tablesReady() {
+    this.enableTriggers();
+  }
+}
+
+/**
+ * Returns a configured instance of TinySynq
+ *
+ * @param config - Configuration object
+ * @returns TinySynq instance
+ *
+ * @public
+ */
+const initTinySynq = config => {
+  const {
+    tables,
+    preInit,
+    postInit,
+    logOptions,
+    debug
+  } = config;
+  if (!(tables != null && tables.length)) throw new Error('Syncable table data required');
+  const log = new Logger({
+    name: 'tinysync-setup',
+    ...logOptions
+  });
+  const ts = new TinySynq(config);
+  const getRecordMetaInsertQuery = ({
+    table,
+    remove = false
+  }) => {
+    /*
+    This is kind of insane, but it works. A rundown of what's happening:
+    - We're creating a trigger after a row operation (the easy part)
+    - Aside from recording the changes, we also need to add record-specific metadata:
+      - table name and row identifier,
+      - the number of times the record has been touched (including creation)
+      - the map of all changes across all devices — a Vector Clock (JSON format)
+      - the source of this change
+    - Getting the vector clock is tricky, partly because of SQLite limitations
+      (no variables, control structures), and partly because it's possible that
+      no meta exists for the record.
+    - To work around this we do a select to get the meta, but perform a union with
+      another select that just selects insert values.
+    - Included in both selects is a 'peg' which we use to sort the UNIONed rows to
+      ensure that if a valid row exists, it's the first row returned.
+    - Now we select from this union and limit to 1 result. If a record exists
+      then we get that record. If not, we get the values ready for insertion.
+    - Finally, if there's a conflict on PRIMAY KEY or UNIQUE contraints, we update
+      only the relevant columns.
+    */
+    const version = remove ? 'OLD' : 'NEW';
+    const sql = `
+    INSERT INTO ${ts.synqPrefix}_record_meta (table_name, row_id, source, mod, vclock)
+    SELECT table_name, row_id, source, mod, vclock
+    FROM (
+      SELECT
+        1 as peg,
+        '${table.name}' as table_name,
+        ${version}.${table.id} as row_id,
+        '${ts.deviceId}' as source, 
+        IFNULL(json_extract(vclock,'$.${ts.deviceId}'), 0) + 1 as mod, 
+        json_set(IFNULL(json_extract(vclock, '$'),'{}'), '$.${ts.deviceId}', IFNULL(json_extract(vclock,'$.${ts.deviceId}'), 0) + 1) as vclock
+      FROM ${ts.synqPrefix}_record_meta
+      WHERE table_name = '${table.name}'
+      AND row_id = ${version}.${table.id}
+      UNION
+      SELECT 0 as peg, '${table.name}' as table_name, ${version}.${table.id} as row_id, '${ts.deviceId}' as source, 1 as mod, json_object('${ts.deviceId}', 1) as vclock
+    )
+    ORDER BY peg DESC
+    LIMIT 1
+    ON CONFLICT DO UPDATE SET
+      source = '${ts.deviceId}',
+      mod = json_extract(excluded.vclock,'$.${ts.deviceId}'),
+      vclock = json_extract(excluded.vclock,'$'),
+      modified = '${ts.utils.utcNowAsISO8601().replace('Z', '')}'
+    ;`;
+    return sql;
+  };
+  const getChangeUpdateQuery = ({
+    table,
+    remove = false
+  }) => {
+    const version = remove ? 'OLD' : 'NEW';
+    const sql = `
+      UPDATE ${ts.synqPrefix}_changes
+      SET vclock = trm.vclock, source = trm.source
+      FROM (
+        SELECT vclock, source
+        FROM ${ts.synqPrefix}_record_meta
+        WHERE table_name = '${table.name}'
+        AND row_id = ${version}.${table.id}
+      ) AS trm
+      WHERE table_name = '${table.name}'
+      AND row_id = ${version}.${table.id};
+    `;
+    return sql;
+  };
+  const setupTriggersForTable = ({
+    table
+  }) => {
+    log.debug('Setting up triggers for', table.name);
+    // Template for inserting the new value as JSON in the `*_changes` table.
+    const jsonObject = ts.runQuery({
+      sql: `
+      SELECT 'json_object(' || GROUP_CONCAT('''' || name || ''', NEW.' || name, ',') || ')' AS jo
+      FROM pragma_table_info('${table.name}');`
+    })[0];
+    log.silly('@jsonObject', JSON.stringify(jsonObject, null, 2));
+    /**
+     * These triggers run for changes originating locally. They are disabled
+     * when remote changes are being applied (`triggers_on` in `*_meta` table).
+     */
+    // Ensure triggers are up to date
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_after_insert_${table.name}`
+    });
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_after_update_${table.name}`
+    });
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_after_delete_${table.name}`
+    });
+    const insertTriggerSql = `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_after_insert_${table.name}
+      AFTER INSERT ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'triggers_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation, data)
+        VALUES ('${table.name}', NEW.${table.id}, 'INSERT', ${jsonObject.jo});
+
+        ${getRecordMetaInsertQuery({
+      table
+    })}
+
+        ${getChangeUpdateQuery({
+      table
+    })}
+      END;`;
+    ts.run({
+      sql: insertTriggerSql
+    });
+    const updateTriggerSql = `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_after_update_${table.name}
+      AFTER UPDATE ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'triggers_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation, data)
+        VALUES ('${table.name}', NEW.${table.id}, 'UPDATE', ${jsonObject.jo});
+
+        ${getRecordMetaInsertQuery({
+      table
+    })}
+
+        ${getChangeUpdateQuery({
+      table
+    })}
+
+      END;`;
+    ts.run({
+      sql: updateTriggerSql
+    });
+    const deleteTriggerSql = `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_after_delete_${table.name}
+      AFTER DELETE ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'triggers_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation) VALUES ('${table.name}', OLD.${table.id}, 'DELETE');
+        
+        ${getRecordMetaInsertQuery({
+      table,
+      remove: true
+    })}
+
+        ${getChangeUpdateQuery({
+      table,
+      remove: true
+    })}
+      END;`;
+    ts.run({
+      sql: deleteTriggerSql
+    });
+    /**
+     * All the triggers below will only be executed if `meta_name="debug_on"`
+     * has the `meta_value=1` in the *_meta table, regardless of `triggers_on`.
+     */
+    // Remove previous versions
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_dump_after_insert_${table.name}`
+    });
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_dump_after_update_${table.name}`
+    });
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_dump_after_delete_${table.name}`
+    });
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_dump_before_insert_record_meta`
+    });
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_dump_after_insert_record_meta`
+    });
+    ts.run({
+      sql: `DROP TRIGGER IF EXISTS ${ts.synqPrefix}_dump_after_update_record_meta`
+    });
+    /**
+     * @Debugging Do not remove
+     * These triggers allow a rudimentary tracing of DB actions on the synced tables.
+     */
+    ts.run({
+      sql: `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_after_insert_${table.name}
+      AFTER INSERT ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_dump (table_name, operation, data)
+        VALUES ('${table.name}', 'INSERT', ${jsonObject.jo});
+      END;`
+    });
+    ts.run({
+      sql: `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_after_update_${table.name}
+      AFTER UPDATE ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_dump (table_name, operation, data) VALUES ('${table.name}', 'UPDATE', ${jsonObject.jo});
+      END;`
+    });
+    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD');
+    ts.run({
+      sql: `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_after_delete_${table.name}
+      AFTER DELETE ON ${table.name}
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_dump (table_name, operation, data) VALUES ('${table.name}', 'DELETE', ${oldJsonObject});
+      END;`
+    });
+    /**
+     * @Debugging Do not remove
+     * These triggers allow comparison record meta before and after insert.
+     */
+    ts.run({
+      sql: `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_before_insert_record_meta
+      BEFORE INSERT ON ${ts.synqPrefix}_record_meta
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_dump (table_name, operation, data)
+        VALUES (NEW.table_name, 'BEFORE_INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
+      END;`
+    });
+    ts.run({
+      sql: `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_after_insert_record_meta
+      AFTER INSERT ON ${ts.synqPrefix}_record_meta
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_dump (table_name, operation, data)
+        VALUES ('${table.name}', 'AFTER_INSERT', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
+      END;`
+    });
+    ts.run({
+      sql: `
+      CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_after_update_record_meta
+      AFTER UPDATE ON ${ts.synqPrefix}_record_meta
+      FOR EACH ROW
+      WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'debug_on')='1'
+      BEGIN
+        INSERT INTO ${ts.synqPrefix}_dump (table_name, operation, data)
+        VALUES ('${table.name}', 'AFTER_UPDATE', json_object('table_name', NEW.table_name, 'row_id', NEW.row_id, 'mod', NEW.mod, 'vclock', NEW.vclock));
+      END;`
+    });
+    /* END OF DEBUG TRIGGERS */
+  };
+  // Create a change-tracking table and index
+  ts.run({
+    sql: `
+    CREATE TABLE IF NOT EXISTS ${ts.synqPrefix}_changes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      data BLOB,
+      operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE'
+      source TEXT,
+      vclock BLOB,
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
+    );`
+  });
+  ts.run({
+    sql: `CREATE INDEX IF NOT EXISTS ${ts.synqPrefix}_change_modified_idx ON ${ts.synqPrefix}_changes(modified)`
+  });
+  ts.run({
+    sql: `CREATE INDEX IF NOT EXISTS ${ts.synqPrefix}_change_table_row_idx ON ${ts.synqPrefix}_changes(table_name, row_id)`
+  });
+  // Change *_pending is essentially a clone of *_changes used to hold items that
+  // cannot be applied yet because intermediate/preceding changes haven't been received.
+  ts.run({
+    sql: `
+    CREATE TABLE IF NOT EXISTS ${ts.synqPrefix}_pending (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      data BLOB,
+      operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE',
+      source TEXT NOT NULL,
+      vclock BLOB NOT NULL,
+      mod INTEGER NOT NULL,
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
+    );`
+  });
+  ts.run({
+    sql: `CREATE INDEX IF NOT EXISTS ${ts.synqPrefix}_pending_table_row_idx ON ${ts.synqPrefix}_pending(table_name, row_id)`
+  });
+  // Create a notice table
+  ts.run({
+    sql: `
+    CREATE TABLE IF NOT EXISTS ${ts.synqPrefix}_notice (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      conflict BLOB,
+      message TEXT NOT NULL,
+      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
+    );`
+  });
+  // Create record meta table and index
+  ts.run({
+    sql: `
+    CREATE TABLE IF NOT EXISTS ${ts.synqPrefix}_record_meta (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_name TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      mod INTEGER NOT NULL,
+      source TEXT NOT NULL,
+      vclock BLOB,
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
+    );`
+  });
+  ts.run({
+    sql: `CREATE UNIQUE INDEX IF NOT EXISTS ${ts.synqPrefix}_record_meta_idx ON ${ts.synqPrefix}_record_meta(table_name, row_id)`
+  });
+  // @TODO: These may actually need to be compound indexes; need to evaluate queries.
+  ts.run({
+    sql: `CREATE INDEX IF NOT EXISTS ${ts.synqPrefix}_record_meta_source_idx ON ${ts.synqPrefix}_record_meta(source)`
+  });
+  ts.run({
+    sql: `CREATE INDEX IF NOT EXISTS ${ts.synqPrefix}_record_meta_modified_idx ON ${ts.synqPrefix}_record_meta(modified)`
+  });
+  // Create meta table
+  ts.run({
+    sql: `
+    CREATE TABLE IF NOT EXISTS ${ts.synqPrefix}_meta (
+      meta_name TEXT NOT NULL PRIMARY KEY,
+      meta_value TEXT NOT NULL
+    );
+  `
+  });
+  ts.run({
+    sql: `
+    CREATE TABLE IF NOT EXISTS ${ts.synqPrefix}_dump (
+      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW')), 
+      table_name TEXT NOT NULL,
+      operation TEXT,
+      data BLOB
+    );
+  `
+  });
+  ts.run({
+    sql: `CREATE INDEX IF NOT EXISTS ${ts.synqPrefix}_meta_name_idx ON ${ts.synqPrefix}_meta(meta_name)`
+  });
+  // Enable debug mode
+  if (debug) ts.enableDebug();
+  // Set the device ID
+  ts.setDeviceId();
+  // Run pre-initialisation queries
+  if (preInit != null && preInit.length) {
+    for (const preInitQuery of preInit) {
+      try {
+        log.debug(`\n@@@ preInit\n${preInitQuery}\n@@@`);
+        ts.run({
+          sql: preInitQuery
+        });
+      } catch (err) {
+        log.error('@preInit', err);
+      }
+    }
+  }
+  log.debug(`@${ts.synqPrefix}_meta`, ts.runQuery({
+    sql: `SELECT * FROM pragma_table_info('${ts.synqPrefix}_meta')`
+  }));
+  log.debug(`@SIMPLE_SELECT`, ts.runQuery({
+    sql: `SELECT '@@@ that was easy @@@'`
+  }));
+  for (const table of tables) {
+    // Check table exists
+    const exists = ts.runQuery({
+      sql: `SELECT * FROM pragma_table_info('${table.name}')`
+    });
+    log.debug('@exists?', table.name, exists);
+    if (!(exists != null && exists.length)) throw new Error(`${table.name} doesn't exist`);
+    log.debug('Setting up', table.name, table.id);
+    setupTriggersForTable({
+      table
+    });
+    ts.tablesReady();
+  }
+  if (postInit != null && postInit.length) {
+    for (const postInitQuery of postInit) {
+      log.warn(`@@@\npostInit\n${postInitQuery}\n@@@`);
+      const result = ts.run({
+        sql: postInitQuery
+      });
+      log.trace(`@@@ postInit RESULT\n`, result);
+    }
+  }
+  return ts;
+};
+
+const log = new Logger({
+  name: 'tinysynq-node-ws',
+  minLevel: Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
+  type: env.TINYSYNQ_LOG_FORMAT || 'json'
+});
+let server;
+function arrayBufferToString(arrBuff) {
+  return Buffer.from(arrBuff).toString();
+}
+const app = uWS.App();
+const port = Number(process.env.TINYSYNQ_PORT || 7174);
+// @TODO: request IDs
+app.ws('/*', {
+  compression: uWS.SHARED_COMPRESSOR,
+  maxPayloadLength: 16 * 1024 * 1024,
+  idleTimeout: 120,
+  sendPingsAutomatically: true,
+  open: ws => {
+    const addr = arrayBufferToString(ws.getRemoteAddressAsText());
+    log.warn('@Connected!', addr);
+  },
+  message: (ws, message, isBinary) => {
+    const messageString = arrayBufferToString(message);
+    const parsed = JSON.parse(messageString);
+    log.debug('@Message!', parsed.changes, app.ts.deviceId);
+    try {
+      switch (parsed.type) {
+        case SyncRequestType.push:
+          if (!parsed.source) {
+            log.error('INVALID_SOURCE', {
+              parsed
+            });
+            throw new Error('Invalid source');
+          }
+          const incoming = parsed.changes.map(c => {
+            c.source = parsed.source;
+            delete c.mod;
+            return c;
+          });
+          console.debug('\n<<<< INCOMING >>>>\n', incoming);
+          app.ts.applyChangesToLocalDB({
+            changes: incoming
+          });
+          break;
+        case SyncRequestType.pull:
+          // @TODO: Eh? Didn't I work this out already?
+          const outgoing = app.ts.getChangesSinceLastSync();
+          log.debug('@pull', outgoing);
+          break;
+        default:
+          throw new Error('Invalid request type:', parsed.type);
+      }
+      ws.send(JSON.stringify({
+        type: SyncResponseType.ack
+      }));
+    } catch (err) {
+      console.error(err, {
+        for: JSON.stringify(parsed)
+      });
+      ws.send(JSON.stringify({
+        type: SyncResponseType.nack,
+        message: err.message
+      }));
+    }
+  }
+});
+const startTinySynqServer = ts => {
+  app.ts = ts;
+  server = app.listen(port, token => {
+    if (token) {
+      console.log('TinySynq server listening on port', port, 'from thread', threadId);
+    } else {
+      console.log('Failed to listen on port', port, 'from thread', threadId);
+    }
+  });
+  return server;
+};
+
+var index = {
+  startTinySynqServer,
+  initTinySynq: initTinySynq
+};
+
+export { index as default };
 //# sourceMappingURL=tinysynq.module.js.map

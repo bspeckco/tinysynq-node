@@ -1,11 +1,16 @@
+import { env } from './env.js';
 import DB from 'better-sqlite3'
-import { ApplyChangeParams, Change, LogLevel, QueryParams, TinySynqOptions, SyncableTable, TableNameRowParams, VClock, TinySynqOperation } from './types.js';
+import { ApplyChangeParams, Change, LogLevel, QueryParams, TinySynqOptions, SyncableTable, TableNameRowParams, VClock, TinySynqOperation, LatestChangesOptions } from './types.js';
 import { Logger, ILogObj } from 'tslog';
 import { nanoid } from 'nanoid';
 import { VCompare } from './vcompare.class.js';
 import { SYNQ_INSERT } from './constants.js';
 
-const log = new Logger({ name: 'tinysync-web-init', minLevel: LogLevel.Info });
+const log = new Logger({
+  name: 'tinysync-node',
+  minLevel: env.TINYSYNQ_LOG_LEVEL ?? LogLevel.Info,
+  type: env.TINYSYNQ_LOG_FORMAT || 'json'
+});
 const strtimeAsISO8601 = `STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')`;
 
 type PreProcessChangeOptions = {
@@ -66,7 +71,7 @@ export class TinySynq {
     strtimeAsISO8601,
     nowAsISO8601: strtimeAsISO8601,
     utcNowAsISO8601: (): string => {
-      return new Date((new Date()).toUTCString()).toISOString();
+      return new Date().toISOString().replace('Z', '');
     }
   }
 
@@ -217,13 +222,13 @@ export class TinySynq {
       this.log.warn(`Couldn't retrieve device ID`);
     }
 
-    log.warn('@device_id', existing);
+    log.info('@device_id', existing);
     if (!existing?.meta_value) {
       const res = this.runQuery<any[]>({
         sql: `INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES (?,?) RETURNING *`,
         values: ['device_id', nanoid(16)]
       });
-      log.warn('@created record for device_id:', res);
+      log.info('@created record for device_id:', res[0].meta_value);
       existing = res[0];
     }
     this._deviceId = existing?.meta_value;
@@ -384,7 +389,7 @@ export class TinySynq {
    * @returns An array of {@link Change} objects.
    */
   getChangesSinceLastSync(params?: {columns?: string[]}): Change[] {
-    let lastLocalSync = this.getLastSync() || undefined;
+    let lastLocalSync = this.getLastSync() || undefined; // @TODO: remove — getChanges already does this.
     return this.getChanges({...params, lastLocalSync});
   };
 
@@ -513,21 +518,24 @@ export class TinySynq {
     return this.getRecord({table_name, row_id});
   }
 
-  insertRecordMeta({change, vclock}: any) {
-    //this.log.warn('<<< @insertRecordMeta >>>', {change, vclock});
-    const { table_name, row_id } = change;
+  insertRecordMeta({change, vclock}: {change: Change, vclock: VClock}) {
+    this.log.trace('<<< @insertRecordMeta >>>', {change, vclock});
+    const { table_name, row_id, source } = change;
     const mod = vclock[this._deviceId!] || 0;
     const values = {
       table_name,
       row_id,
       mod,
-      vclock: JSON.stringify(vclock)
+      source,
+      vclock: JSON.stringify(vclock),
+      modified: this.utils.utcNowAsISO8601(),
     };
+    this.log.trace("@insertRecordMeta", {values});
     return this.runQuery({
       sql: `
-      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, mod, vclock)
-      VALUES (:table_name, :row_id, :mod, :vclock)
-      ON CONFLICT DO UPDATE SET mod = :mod, vclock = :vclock
+      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, source, mod, vclock)
+      VALUES (:table_name, :row_id, :source, :mod, :vclock)
+      ON CONFLICT DO UPDATE SET source = :source, mod = :mod, vclock = :vclock, modified = :modified
       RETURNING *
       `,
       values,
@@ -809,6 +817,7 @@ export class TinySynq {
   }
   
   applyChangesToLocalDB({ changes, restore = false }: { changes: Change[], restore?: boolean }) {
+    this.log.debug('\n<<< @CHANGES >>>\n', changes, '\n<<< @CHANGES >>>\n')
     this.disableTriggers();
     // Split changes into batches
     for (let i = 0; i < changes.length; i += this.synqBatchSize) {
@@ -833,6 +842,36 @@ export class TinySynq {
     this.enableTriggers();
     this.log.silly(`Applied ${changes.length} change(s)`);
   };
+
+  /**
+   * Get items that have been recently changed.
+   * 
+   * @param opts 
+   */
+  getFilteredChanges(opts?: LatestChangesOptions) {
+    let and: string[] = [];
+    let values: any = {};
+    if (opts?.exclude) {
+      and.push('source != :exclude');
+      values.exclude = opts.exclude;
+    }
+    if (opts?.checkpoint) {
+      and.push('id > :checkpoint');
+      values.checkpoint = opts.checkpoint;
+    }
+    else if (opts?.since) {
+      and.push('modified > :since');
+      values.since = opts.since
+    }
+    const sql = `
+    SELECT id, table_name, row_id, data, operation, source, vclock, modified
+    FROM ${this.synqPrefix}_changes
+    WHERE 1=1
+    ${and.join(' AND ')}
+    ORDER BY modified ASC`;
+
+    return this.runQuery({sql, values});
+  }
 
   tablesReady() {
     this.enableTriggers();

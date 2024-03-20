@@ -183,9 +183,53 @@ export interface Change {
      */
     vclock: VClock;
     /**
+     * Device ID from which the change originated.
+     */
+    source: string;
+    /**
      * An ISO8601 formatted date and time that the change was recorded on the source device.
      */
     modified: string;
+}
+interface BaseLatestChangesOptions {
+    /**
+     * A device ID whose changes should be excluded from retrieval (usually the requester).
+     */
+    exclude: string;
+    /**
+     * An ISO8601 date string. Providing this will limit retrieved changes to this date/time onwards.
+     */
+    since: string;
+    /**
+     * A
+     */
+    checkpoint: number;
+}
+interface LatestChangesWithSince extends BaseLatestChangesOptions {
+    /**
+     * An ISO8601 date string. Providing this will limit retrieved changes to this date/time onwards.
+     */
+    since: string;
+}
+interface LatestChangesWithCheckpoint extends BaseLatestChangesOptions {
+    /**
+     * A server-specific change ID.
+     *
+     * @remarks
+     *
+     * When provided it will limit retrieved changes to those _after_ the specified change ID.
+     * The change ID is specific to the hub/root server (of which there should be only one).
+     */
+    checkpoint: number;
+}
+export type LatestChangesOptions = LatestChangesWithSince | LatestChangesWithCheckpoint;
+export declare enum SyncRequestType {
+    push = "push",
+    pull = "pull"
+}
+export declare enum SyncResponseType {
+    ack = "ack",
+    nack = "nack"
 }
 export declare enum LogLevel {
     Silly = 0,
@@ -196,4 +240,5 @@ export declare enum LogLevel {
     Error = 5,
     Fatal = 6
 }
+export {};
 //# sourceMappingURL=types.d.ts.map

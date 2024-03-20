@@ -10,12 +10,6 @@
 |  --- | --- |
 |  [TinySynq](./tinysynq-node.tinysynq.md) | The main class for managing SQLite3 synchronisation. |
 
-## Functions
-
-|  Function | Description |
-|  --- | --- |
-|  [setupDatabase(config)](./tinysynq-node.setupdatabase.md) | Returns a configured instance of TinySynq |
-
 ## Interfaces
 
 |  Interface | Description |
@@ -23,6 +17,12 @@
 |  [Change](./tinysynq-node.change.md) | Object transferred between devices to convey individual record changes. |
 |  [SyncableTable](./tinysynq-node.syncabletable.md) | Provided to TinySynq constructor. |
 |  [TinySynqOptionsBase](./tinysynq-node.tinysynqoptionsbase.md) | Base options for TinySynq constructor. |
+
+## Variables
+
+|  Variable | Description |
+|  --- | --- |
+|  [\_default](./tinysynq-node._default.md) |  |
 
 ## Type Aliases
 

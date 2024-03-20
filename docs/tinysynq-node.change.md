@@ -21,6 +21,7 @@ export interface Change
 |  [modified](./tinysynq-node.change.modified.md) |  | string | An ISO8601 formatted date and time that the change was recorded on the source device. |
 |  [operation](./tinysynq-node.change.operation.md) |  | keyof typeof TinySynqOperation | The type of operation that took place. |
 |  [row\_id](./tinysynq-node.change.row_id.md) |  | string | Row ID of the record that was modified. |
+|  [source](./tinysynq-node.change.source.md) |  | string | Device ID from which the change originated. |
 |  [table\_name](./tinysynq-node.change.table_name.md) |  | string | Table name of the record that was modified. |
 |  [vclock](./tinysynq-node.change.vclock.md) |  | VClock | Vector Clock holding all device values for the record, as known by the source device of the change. |
 

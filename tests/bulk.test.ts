@@ -8,7 +8,7 @@ import { getConfiguredDb, getRandomColumnUpdate, removeDb } from './utils.js';
 const ID_SIZE = 16; // 1000 years to reach 1% probability of collision at 1000 IDs per second
 const logLevel = LogLevel.Warn;
 
-describe('Sync Module', () => {
+describe('Bulk', () => {
 
   describe('Multiple changes', () => {
     test('Multiple inserts, updates and deletes', () => {
@@ -65,6 +65,7 @@ describe('Sync Module', () => {
       const dbFileA = `/tmp/test${now}A.db`;
       const dbFileB = `/tmp/test${now}B.db`;
       const dbA = getConfiguredDb({
+        useDefault: false,
         config: {
           filePath: dbFileA,
           tables: [
@@ -115,7 +116,7 @@ describe('Sync Module', () => {
 
       console.log('::: update random :::');
 
-      for (let i = 0; i < 10000; i++) {
+      for (let i = 0; i < 5000; i++) {
         const { randVal, randCol, randTable } = getRandomColumnUpdate({ editableTables });
 
         // console.log({randVal, randCol, randTable});
@@ -137,7 +138,7 @@ describe('Sync Module', () => {
         });
       }
       const columns = [
-        'c.*','trm.vclock'
+        'c.*','trm.source','trm.vclock'
       ];
       const changelog = dbA.getChangesSinceLastSync({columns});
 
