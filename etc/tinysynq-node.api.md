@@ -10,6 +10,7 @@ import { ISettingsParam } from 'tslog';
 import { TemplatedApp } from 'uWebSockets.js';
 import { TinySynq as TinySynq_2 } from './lib/tinysynq.class.js';
 import { TinySynqOptions as TinySynqOptions_2 } from './lib/types.js';
+import { TSServerParams } from './lib/server.js';
 
 // @public
 export type BetterSqlite3Instance = BetterSqlite3.Database;
@@ -18,7 +19,6 @@ export type BetterSqlite3Instance = BetterSqlite3.Database;
 export interface Change {
     data: string;
     id?: number;
-    mod: number;
     modified: string;
     // Warning: (ae-forgotten-export) The symbol "TinySynqOperation" needs to be exported by the entry point index.d.ts
     operation: keyof typeof TinySynqOperation;
@@ -31,7 +31,7 @@ export interface Change {
 
 // @public (undocumented)
 const _default: {
-    startTinySynqServer: (ts: TinySynq_2) => TemplatedApp;
+    startTinySynqServer: (params: TSServerParams) => TemplatedApp;
     initTinySynq: (config: TinySynqOptions_2) => TinySynq_2;
 };
 export default _default;
@@ -82,9 +82,9 @@ export class TinySynq {
         columns?: string[];
     }): Change[];
     getDeviceId(): string;
-    getLastSync(): string;
     // Warning: (ae-forgotten-export) The symbol "LatestChangesOptions" needs to be exported by the entry point index.d.ts
-    getLatestChanges(opts?: LatestChangesOptions): any;
+    getFilteredChanges(opts?: LatestChangesOptions): any;
+    getLastSync(): string;
     getNewId(): string;
     getPending(): any;
     getRecordMeta(params: {

@@ -4,6 +4,7 @@ import { ISettingsParam } from 'tslog';
 import { TemplatedApp } from 'uWebSockets.js';
 import { TinySynq as TinySynq_2 } from './lib/tinysynq.class.js';
 import { TinySynqOptions as TinySynqOptions_2 } from './lib/types.js';
+import { TSServerParams } from './lib/server.js';
 
 declare interface BaseLatestChangesOptions {
     /**
@@ -68,7 +69,7 @@ export declare interface Change {
 }
 
 declare const _default: {
-    startTinySynqServer: (ts: TinySynq_2) => TemplatedApp;
+    startTinySynqServer: (params: TSServerParams) => TemplatedApp;
     initTinySynq: (config: TinySynqOptions_2) => TinySynq_2;
 };
 export default _default;
@@ -449,6 +450,7 @@ export declare class TinySynq {
      */
     private createInsertFromSystemObject;
     private updateLastSync;
+    private insertChangeData;
     private applyChange;
     applyChangesToLocalDB({ changes, restore }: {
         changes: Change[];

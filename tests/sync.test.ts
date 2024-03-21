@@ -123,12 +123,11 @@ describe('Sync', () => {
         origin: remoteId,
         operation: 'UPDATE',
       });
+      await wait({ms: 100});
       changes[0].modified = new Date().toISOString();
 
       sq.applyChangesToLocalDB({ changes });
       
-      await wait({ms: 100});
-
       const entry = sq.getById<any>({table_name: 'entry', row_id: changes[0].row_id});
       entry.entry_title = `Updated to ${performance.now()}`;
       const sql = sq.createInsertFromObject({

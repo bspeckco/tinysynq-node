@@ -80,10 +80,10 @@ class VCompare {
     // remote always wins when local is empty.
     const {
       remoteTime,
-      localTime = new Date('1970-01-01').toISOString()
+      localTime = '1970-01-01'
     } = this;
     if (!remoteTime || !localTime) throw new Error('Missing modified time');
-    return localTime >= remoteTime;
+    return new Date(localTime) >= new Date(remoteTime);
   }
   isOutOfOrder() {
     const {
@@ -123,7 +123,7 @@ class VCompare {
 const SYNQ_INSERT = 'INSERT';
 
 var _env$TINYSYNQ_LOG_LEV;
-const log$1 = new Logger({
+const log = new Logger({
   name: 'tinysync-node',
   minLevel: (_env$TINYSYNQ_LOG_LEV = env.TINYSYNQ_LOG_LEVEL) != null ? _env$TINYSYNQ_LOG_LEV : LogLevel.Info,
   type: env.TINYSYNQ_LOG_FORMAT || 'json'
@@ -298,13 +298,13 @@ class TinySynq {
     } catch (err) {
       this.log.warn(`Couldn't retrieve device ID`);
     }
-    log$1.info('@device_id', existing);
+    log.info('@device_id', existing);
     if (!((_existing = existing) != null && _existing.meta_value)) {
       const res = this.runQuery({
         sql: `INSERT OR REPLACE INTO ${this.synqPrefix}_meta (meta_name, meta_value) VALUES (?,?) RETURNING *`,
         values: ['device_id', nanoid(16)]
       });
-      log$1.info('@created record for device_id:', res[0].meta_value);
+      log.info('@created record for device_id:', res[0].meta_value);
       existing = res[0];
     }
     this._deviceId = (_existing2 = existing) == null ? void 0 : _existing2.meta_value;
@@ -631,7 +631,7 @@ class TinySynq {
     change,
     vclock
   }) {
-    this.log.trace('<<< @insertRecordMeta >>>', {
+    this.log.debug('<<< @insertRecordMeta >>>', {
       change,
       vclock
     });
@@ -647,15 +647,15 @@ class TinySynq {
       mod,
       source,
       vclock: JSON.stringify(vclock),
-      modified: this.utils.utcNowAsISO8601()
+      modified: change.modified
     };
-    this.log.trace("@insertRecordMeta", {
+    this.log.debug("@insertRecordMeta", {
       values
     });
     return this.runQuery({
       sql: `
-      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, source, mod, vclock)
-      VALUES (:table_name, :row_id, :source, :mod, :vclock)
+      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, source, mod, vclock, modified)
+      VALUES (:table_name, :row_id, :source, :mod, :vclock, :modified)
       ON CONFLICT DO UPDATE SET source = :source, mod = :mod, vclock = :vclock, modified = :modified
       RETURNING *
       `,
@@ -790,7 +790,7 @@ class TinySynq {
       row_id
     });
     const local = meta != null && meta.vclock ? JSON.parse(meta.vclock) : {};
-    const localTime = meta == null ? void 0 : meta.modified;
+    const localTime = (meta == null ? void 0 : meta.modified) || '1970-01-01';
     const remoteTime = change.modified;
     let latest = {};
     const localV = new VCompare({
@@ -937,6 +937,27 @@ class TinySynq {
       }
     });
   }
+  insertChangeData({
+    change
+  }) {
+    const values = {
+      ...change
+    };
+    delete values.id;
+    const sql = this.createInsertFromSystemObject({
+      data: values,
+      table_name: `${this.synqPrefix}_changes`
+    });
+    this.log.warn('@insertChangeData', {
+      sql,
+      values
+    });
+    values.vclock = JSON.stringify(change.vclock);
+    this.run({
+      sql,
+      values
+    });
+  }
   async applyChange({
     change,
     restore,
@@ -974,6 +995,10 @@ class TinySynq {
         table,
         changeStatus
       });
+      // Store the change before applying
+      this.insertChangeData({
+        change
+      });
       switch (change.operation) {
         case 'INSERT':
         case 'UPDATE':
@@ -981,7 +1006,7 @@ class TinySynq {
             data: recordData,
             table_name: change.table_name
           });
-          await this.run({
+          this.run({
             sql: insertSql,
             values: recordData
           });
@@ -989,7 +1014,7 @@ class TinySynq {
         case 'DELETE':
           const sql = `DELETE FROM ${change.table_name} WHERE ${table.id} = ?`;
           this.log.warn('>>> DELETE SQL <<<', sql, change.row_id);
-          await this.run({
+          this.run({
             sql,
             values: [change.row_id]
           });
@@ -1171,8 +1196,13 @@ const initTinySynq = config => {
         WHERE table_name = '${table.name}'
         AND row_id = ${version}.${table.id}
       ) AS trm
-      WHERE table_name = '${table.name}'
-      AND row_id = ${version}.${table.id};
+      WHERE id IN (
+        SELECT id FROM ${ts.synqPrefix}_changes
+        WHERE table_name = '${table.name}'
+        AND row_id = ${version}.${table.id}
+        ORDER by id desc
+        LIMIT 1
+      );
     `;
     return sql;
   };
@@ -1393,7 +1423,6 @@ const initTinySynq = config => {
       operation TEXT NOT NULL, -- 'INSERT', 'UPDATE', 'DELETE',
       source TEXT NOT NULL,
       vclock BLOB NOT NULL,
-      mod INTEGER NOT NULL,
       modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
     );`
   });
@@ -1485,7 +1514,6 @@ const initTinySynq = config => {
     const exists = ts.runQuery({
       sql: `SELECT * FROM pragma_table_info('${table.name}')`
     });
-    log.debug('@exists?', table.name, exists);
     if (!(exists != null && exists.length)) throw new Error(`${table.name} doesn't exist`);
     log.debug('Setting up', table.name, table.id);
     setupTriggersForTable({
@@ -1505,11 +1533,6 @@ const initTinySynq = config => {
   return ts;
 };
 
-const log = new Logger({
-  name: 'tinysynq-node-ws',
-  minLevel: Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
-  type: env.TINYSYNQ_LOG_FORMAT || 'json'
-});
 let server;
 function arrayBufferToString(arrBuff) {
   return Buffer.from(arrBuff).toString();
@@ -1524,17 +1547,22 @@ app.ws('/*', {
   sendPingsAutomatically: true,
   open: ws => {
     const addr = arrayBufferToString(ws.getRemoteAddressAsText());
-    log.warn('@Connected!', addr);
+    app.log.warn('@Connected!', addr);
+    ws.subscribe('broadcast');
   },
   message: (ws, message, isBinary) => {
+    const addr = arrayBufferToString(ws.getRemoteAddressAsText());
     const messageString = arrayBufferToString(message);
     const parsed = JSON.parse(messageString);
-    log.debug('@Message!', parsed.changes, app.ts.deviceId);
+    const {
+      requestId
+    } = parsed;
+    app.log.debug('@Message!', parsed.changes, app.ts.deviceId);
     try {
       switch (parsed.type) {
         case SyncRequestType.push:
           if (!parsed.source) {
-            log.error('INVALID_SOURCE', {
+            app.log.error('INVALID_SOURCE', {
               parsed
             });
             throw new Error('Invalid source');
@@ -1542,42 +1570,60 @@ app.ws('/*', {
           const incoming = parsed.changes.map(c => {
             c.source = parsed.source;
             delete c.mod;
+            //c.vclock = JSON.parse(c.vclock);
             return c;
           });
           console.debug('\n<<<< INCOMING >>>>\n', incoming);
           app.ts.applyChangesToLocalDB({
             changes: incoming
           });
+          ws.send(JSON.stringify({
+            type: SyncResponseType.ack,
+            requestId
+          }));
+          ws.publish('broadcast', JSON.stringify({
+            changes: incoming
+          }), false);
           break;
         case SyncRequestType.pull:
           // @TODO: Eh? Didn't I work this out already?
-          const outgoing = app.ts.getChangesSinceLastSync();
-          log.debug('@pull', outgoing);
+          const changes = app.ts.getFilteredChanges();
+          app.log.debug('@pull: outgoing:', changes);
+          ws.send(JSON.stringify({
+            type: SyncResponseType.ack,
+            requestId,
+            changes
+          }));
           break;
         default:
           throw new Error('Invalid request type:', parsed.type);
       }
-      ws.send(JSON.stringify({
-        type: SyncResponseType.ack
-      }));
     } catch (err) {
-      console.error(err, {
+      app.log.error(err, {
+        addr,
         for: JSON.stringify(parsed)
       });
       ws.send(JSON.stringify({
         type: SyncResponseType.nack,
+        requestId: parsed.requestId,
         message: err.message
       }));
     }
   }
 });
-const startTinySynqServer = ts => {
-  app.ts = ts;
+const startTinySynqServer = params => {
+  app.ts = params.ts;
+  app.log = new Logger({
+    name: 'tinysynq-node-ws',
+    minLevel: Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
+    type: env.TINYSYNQ_LOG_FORMAT || 'json',
+    ...(params.logOptions || {})
+  });
   server = app.listen(port, token => {
     if (token) {
-      console.log('TinySynq server listening on port', port, 'from thread', threadId);
+      app.log.info(`TinySynq server listening on port ${port} from thread ${threadId}`);
     } else {
-      console.log('Failed to listen on port', port, 'from thread', threadId);
+      app.log.error(`Failed to listen on port ${port} from thread ${threadId}`);
     }
   });
   return server;

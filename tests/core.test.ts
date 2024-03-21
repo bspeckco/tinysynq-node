@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { getConfiguredDb, removeDb } from './utils.js';
+import { getConfiguredDb, removeDb, wait } from './utils.js';
 import { TinySynqOperation } from '../src/lib/types.js';
 
 describe('Core', () => {
@@ -25,29 +25,32 @@ describe('Core', () => {
     expect(deviceId).toBeTruthy();
   });
 
-  test('sets meta data and change for table row update', () => {
+  test('sets meta data and change for table row update', async () => {
     const db = getConfiguredDb({useDefault: true});
     const filePath = db.dbPath;
     const vclock = {[db.deviceId!]: 1};
+
+    await wait({ms: 100});
     const updates = [
       { 
         id: 1,
         table_name: 'items',
         row_id: 'fakeId0',
         operation: TinySynqOperation.UPDATE,
-        data: JSON.stringify({item_id: 'fakeId0', name: "Changed Item" }),
+        data: JSON.stringify({item_id: 'fakeId0', name: 'Changed Item' }),
         modified: db.utils.utcNowAsISO8601(),
         vclock,
         source: db.deviceId!,
       },
     ];
+
     db.applyChangesToLocalDB({changes: updates});
     const res =  db.getRecordMeta({table_name: 'items', row_id: 'fakeId0'});
     const changes = db.getFilteredChanges();
 
     removeDb({filePath});
     expect(res).toBeTruthy();
-    expect(changes).toHaveLength(2);
+    expect(changes).toHaveLength(3);
     expect(changes[0].vclock).toMatch(JSON.stringify(vclock));
     expect(changes[0].source).toMatch(db.deviceId!);
     expect(changes[1].vclock).toMatch(JSON.stringify(vclock));
@@ -69,4 +72,29 @@ describe('Core', () => {
     expect(changes.length).toBe(2);
     expect(changes[0].row_id).toBe('fakeId0');
   });
+
+  test('should insert change data when applying change', () => {
+    const db = getConfiguredDb({useDefault: true});
+    const filePath = db.dbPath;
+    const vclock = {[db.deviceId!]: 1};
+    const updates = [
+      { 
+        id: 1,
+        table_name: 'items',
+        row_id: 'change01',
+        operation: TinySynqOperation.INSERT,
+        data: JSON.stringify({item_id: 'change01', name: 'Change 01' }),
+        modified: db.utils.utcNowAsISO8601(),
+        vclock,
+        source: db.deviceId!,
+      },
+    ];
+    db.applyChangesToLocalDB({changes: updates});
+    const res =  db.getRecordMeta({table_name: 'items', row_id: 'change01'});
+    const changes = db.getFilteredChanges();
+
+    removeDb({filePath});
+    expect(res).toBeTruthy(); 
+    expect(changes).toHaveLength(3);
+  })
 });

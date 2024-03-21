@@ -519,7 +519,7 @@ export class TinySynq {
   }
 
   insertRecordMeta({change, vclock}: {change: Change, vclock: VClock}) {
-    this.log.trace('<<< @insertRecordMeta >>>', {change, vclock});
+    this.log.debug('<<< @insertRecordMeta >>>', {change, vclock});
     const { table_name, row_id, source } = change;
     const mod = vclock[this._deviceId!] || 0;
     const values = {
@@ -528,13 +528,13 @@ export class TinySynq {
       mod,
       source,
       vclock: JSON.stringify(vclock),
-      modified: this.utils.utcNowAsISO8601(),
+      modified: change.modified,
     };
-    this.log.trace("@insertRecordMeta", {values});
+    this.log.debug("@insertRecordMeta", {values});
     return this.runQuery({
       sql: `
-      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, source, mod, vclock)
-      VALUES (:table_name, :row_id, :source, :mod, :vclock)
+      INSERT INTO ${this._synqPrefix}_record_meta (table_name, row_id, source, mod, vclock, modified)
+      VALUES (:table_name, :row_id, :source, :mod, :vclock, :modified)
       ON CONFLICT DO UPDATE SET source = :source, mod = :mod, vclock = :vclock, modified = :modified
       RETURNING *
       `,
@@ -636,7 +636,7 @@ export class TinySynq {
     const record = this.getRecord({table_name, row_id});
     const meta = this.getRecordMeta({table_name, row_id});
     const local = meta?.vclock ? JSON.parse(meta.vclock) : {};
-    const localTime = meta?.modified;
+    const localTime = meta?.modified || '1970-01-01';
     const remoteTime = change.modified;
 
     let latest: VClock = {};
@@ -755,6 +755,20 @@ export class TinySynq {
     });
   }
 
+  private insertChangeData({change}: {change: Change}) {
+    const values: any = {...change};
+    delete values.id;
+
+    const sql = this.createInsertFromSystemObject({
+      data: values,
+      table_name: `${this.synqPrefix}_changes`
+    });
+    this.log.warn('@insertChangeData', {sql, values});
+
+    values.vclock = JSON.stringify(change.vclock);
+    this.run({sql, values});
+  }
+
   private async applyChange({
     change,
     restore,
@@ -787,6 +801,10 @@ export class TinySynq {
  
       if (!table) throw new Error(`Unable to find table ${change.table_name}`);
       this.log.silly('@applyChange', {change, table, changeStatus});
+      
+      // Store the change before applying
+      this.insertChangeData({change});
+
       switch(change.operation) {
         case 'INSERT':
         case 'UPDATE':
@@ -794,12 +812,12 @@ export class TinySynq {
             data: recordData,
             table_name: change.table_name
           });
-          await this.run({sql: insertSql, values: recordData});
+          this.run({sql: insertSql, values: recordData});
           break;
         case 'DELETE':
           const sql = `DELETE FROM ${change.table_name} WHERE ${table.id} = ?`;
           this.log.warn('>>> DELETE SQL <<<', sql, change.row_id);
-          await this.run({sql, values: [change.row_id]});
+          this.run({sql, values: [change.row_id]});
           break;
       }
 

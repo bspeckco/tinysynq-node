@@ -3,16 +3,16 @@ import * as uWS from 'uWebSockets.js';
 import { threadId } from 'worker_threads';
 import { TinySynq } from './tinysynq.class.js';
 import { LogLevel, SyncRequestType, SyncResponseType } from './types.js';
-import { Logger } from 'tslog';
-
-const log = new Logger({
-  name:'tinysynq-node-ws',
-  minLevel: Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
-  type: env.TINYSYNQ_LOG_FORMAT || 'json'
-});
+import { ILogObj, ISettingsParam, Logger } from 'tslog';
 
 interface TSTemplatedApp extends uWS.TemplatedApp {
-  ts: TinySynq
+  ts: TinySynq,
+  log: Logger<ILogObj>
+}
+
+export interface TSServerParams {
+  ts: TinySynq,
+  logOptions: ISettingsParam<ILogObj>
 }
 
 let server;
@@ -33,52 +33,69 @@ app.ws('/*', {
   sendPingsAutomatically: true,
   open: ws => {
     const addr = arrayBufferToString(ws.getRemoteAddressAsText());
-    log.warn('@Connected!', addr);
+    app.log.warn('@Connected!', addr);
+    ws.subscribe('broadcast');
   },
   message: (ws, message, isBinary) => {
+    const addr = arrayBufferToString(ws.getRemoteAddressAsText());
     const messageString = arrayBufferToString(message);
     const parsed = JSON.parse(messageString);
-    log.debug('@Message!', parsed.changes, app.ts.deviceId);
+    const { requestId } = parsed;
+    app.log.debug('@Message!', parsed.changes, app.ts.deviceId);
     try {
       switch(parsed.type) {
         case SyncRequestType.push:
           if (!parsed.source) {
-            log.error('INVALID_SOURCE', {parsed});
+            app.log.error('INVALID_SOURCE', {parsed});
             throw new Error('Invalid source');
           }  
           const incoming = parsed.changes.map((c: any) => {
             c.source = parsed.source
             delete c.mod;
+            //c.vclock = JSON.parse(c.vclock);
             return c;
           });
           console.debug('\n<<<< INCOMING >>>>\n', incoming);
           app.ts.applyChangesToLocalDB({changes: incoming});
+          ws.send(JSON.stringify({type: SyncResponseType.ack, requestId}));
+          ws.publish('broadcast', JSON.stringify({changes: incoming}), false);
           break;
         case SyncRequestType.pull:
           // @TODO: Eh? Didn't I work this out already?
-          const outgoing = app.ts.getChangesSinceLastSync();
-          log.debug('@pull', outgoing);
+          const changes = app.ts.getFilteredChanges();
+          app.log.debug('@pull: outgoing:', changes);
+          ws.send(JSON.stringify({type: SyncResponseType.ack, requestId, changes}));
           break;
         default:
           throw new Error('Invalid request type:', parsed.type);
       }
-      ws.send(JSON.stringify({type: SyncResponseType.ack}));
+      
     }
     catch(err: any) {
-      console.error(err, {for: JSON.stringify(parsed)});
-      ws.send(JSON.stringify({type: SyncResponseType.nack, message: err.message}));
+      app.log.error(err, {addr, for: JSON.stringify(parsed)});
+      ws.send(JSON.stringify({
+        type: SyncResponseType.nack,
+        requestId: parsed.requestId,
+        message: err.message
+      }));
     }
   },
 });
 
-export const startTinySynqServer = (ts: TinySynq) => {
-  app.ts = ts;
+export const startTinySynqServer = (params: TSServerParams) => {
+  app.ts = params.ts;
+  app.log = new Logger({
+    name:'tinysynq-node-ws',
+    minLevel: Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
+    type: env.TINYSYNQ_LOG_FORMAT || 'json',
+    ...(params.logOptions || {})
+  });
   server = app.listen(port, token => {
     if (token) {
-      console.log('TinySynq server listening on port', port, 'from thread', threadId);
+      app.log.info(`TinySynq server listening on port ${port} from thread ${threadId}`);
     }
     else {
-      console.log('Failed to listen on port', port, 'from thread', threadId);
+      app.log.error(`Failed to listen on port ${port} from thread ${threadId}`);
     }
   });
   return server;

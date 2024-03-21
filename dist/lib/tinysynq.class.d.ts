@@ -323,6 +323,7 @@ export declare class TinySynq {
      */
     private createInsertFromSystemObject;
     private updateLastSync;
+    private insertChangeData;
     private applyChange;
     applyChangesToLocalDB({ changes, restore }: {
         changes: Change[];

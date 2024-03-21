@@ -291,7 +291,6 @@ export function generateChangesForTable(
       data: JSON.stringify(rowData),
       vclock,
       source: origin,
-      mod: vclock[origin],
       modified: sq.utils.utcNowAsISO8601()
     };
     changes.push(change);

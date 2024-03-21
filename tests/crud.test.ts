@@ -1,14 +1,16 @@
 import { describe, test, expect } from 'vitest';
-import { getConfiguredDb, removeDb } from './utils.js';
+import { getConfiguredDb, removeDb, wait } from './utils.js';
 import { TinySynqOperation } from '../src/lib/types.js';
+import { testCreateTableEntry, testCreateTableJournal } from './test-data/journal.data.js';
 
 describe('CRUD', () => {
   describe('applyChangesToLocalDB', () => {
-    test('UPDATE is applied correctly', () => {
+    test('UPDATE is applied correctly', async () => {
       const sq = getConfiguredDb({useDefault: true});
       const filePath = sq.dbPath;
 
       // Simulate UPDATE
+      await wait({ms: 50});
       const changes = [
         { 
           id: 1,
@@ -30,7 +32,7 @@ describe('CRUD', () => {
       expect(item.name).toBe('Updated Item');
     });
 
-    test('DELETE is applied correctly', () => {
+    test('DELETE is applied correctly', async () => {
       const sq = getConfiguredDb({useDefault: true});
       const filePath = sq.dbPath;
 
@@ -42,6 +44,7 @@ describe('CRUD', () => {
       vclock[sq.deviceId!] = vclock[sq.deviceId!] + 1;
 
       // Simulate DELETE
+      await wait({ms: 50});
       const changes = [
         { 
           id: 2,
@@ -63,10 +66,12 @@ describe('CRUD', () => {
       expect(deleted).toBeFalsy();
     });
 
-    test('INSERT is applied correctly', () => {
+    test('INSERT is applied correctly', async () => {
       const sq = getConfiguredDb({useDefault: true});
       const filePath = sq.dbPath;
+      
       // Simulate INSERT
+      await wait({ms: 50});
       const changes = [
         {
           id: 3,
@@ -88,6 +93,46 @@ describe('CRUD', () => {
       removeDb({filePath});
       expect(inserted).toBeTruthy();
       expect(inserted.item_id).toBe('fakeId2');
+    });
+
+    test('INSERT SAMPLE is applied correctly', async () => {
+      const sq = getConfiguredDb({
+        useDefault: false,
+        config: {
+          preInit: [testCreateTableJournal, testCreateTableEntry],
+          tables: [
+            {name: 'journal', id: 'journal_id', editable: ['journal_name']},
+            {name: 'entry', id: 'entry_id', editable: ['entry_text', 'entry_title', 'entry_content', 'entry_date']} 
+          ],
+          logOptions: {
+            minLevel: 2
+          }
+        }
+      });
+      const filePath = sq.dbPath;
+      // Simulate INSERT
+      await wait({ms: 50});
+      const now = sq.utils.utcNowAsISO8601();
+      const changes = [
+        {
+          id: 1,
+          table_name: 'journal',
+          row_id: 'L1SE23J9006-L_AP',
+          data: `{"journal_id":"L1SE23J9006-L_AP","journal_name":"test","journal_created":"${now}"}`,
+          operation: TinySynqOperation.INSERT,
+          source: 'db#1@660656',
+          vclock: {"db#1@660656":1},
+          modified: now
+        },
+      ];
+      sq.applyChangesToLocalDB({changes});
+
+      // Verify item insert were applied
+      const inserted:any = sq.getById({table_name: 'journal', row_id: 'L1SE23J9006-L_AP'});
+
+      removeDb({filePath});
+      expect(inserted).toBeTruthy();
+      expect(inserted.journal_id).toBe('L1SE23J9006-L_AP');
     });
   });
 });

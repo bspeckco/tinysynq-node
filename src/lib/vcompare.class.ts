@@ -1,6 +1,5 @@
 import { VClock } from "./types.js";
 
-
 type VectorClockParams = {
   local: VClock;
   remote: VClock;
@@ -23,7 +22,6 @@ export class VCompare { // @TODO: rename to VCompare
   private localId: string;
   private localTime: string;
   private remoteTime: string;
-
 
   constructor({ local, remote, localId, localTime, remoteTime }: VectorClockParams) {
     this.local = local;
@@ -48,16 +46,15 @@ export class VCompare { // @TODO: rename to VCompare
       this.isGreater = this.isGreater || localCount > remoteCount;
       this.isLess = this.isLess || localCount < remoteCount;
     });
-    
     return this.isGreater && this.isLess;
   }
 
   isOutDated(): boolean {
     // Default localTime to any early date so that 
     // remote always wins when local is empty.
-    const { remoteTime, localTime = new Date('1970-01-01').toISOString() } = this;
+    const { remoteTime, localTime = '1970-01-01' } = this;
     if (!remoteTime || !localTime) throw new Error('Missing modified time');
-    return localTime >= remoteTime;
+    return new Date(localTime) >= new Date(remoteTime);
   }
 
   isOutOfOrder(): boolean {

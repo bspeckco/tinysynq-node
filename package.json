@@ -44,7 +44,6 @@
     "dotenv": "^16.4.5",
     "nanoid": "^5.0.5",
     "tslog": "^4.9.2",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.43.0",
-    "ws": "^8.16.0"
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.43.0"
   }
 }
