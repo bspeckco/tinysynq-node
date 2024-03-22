@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { alterRecordMeta, generateChangesForTable, getConfiguredDb, getNanoId, getRandomDateTime, getRecordOrRandom, removeDb, wait } from "./utils.js";
 import { TinySynq } from "../src/lib/tinysynq.class.js";
 import { testCreateTableEntry, testCreateTableJournal, testEntryData, testInsertRowEntry, testInsertRowJournal, testJournalData } from "./test-data/journal.data.js";
-import { SYNQLITE_NANOID_SIZE, SYNQ_UPDATE } from "../src/lib/constants.js";
+import { TINYSYNQ_NANOID_SIZE, SYNQ_UPDATE } from "../src/lib/constants.js";
 import { nanoid } from "nanoid";
 import { LogLevel } from "../src/lib/types.js";
 import { Logger } from "tslog";
@@ -69,7 +69,7 @@ describe('Sync', () => {
         origin: remoteId,
         operation: 'UPDATE',
       });
-      changes[0].modified = new Date().toISOString();
+      //changes[0].modified = new Date().toISOString();
 
       const entry = sq.getById({table_name: 'entry', row_id: changes[0].row_id});
       const originalMeta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
@@ -97,7 +97,6 @@ describe('Sync', () => {
         origin: remoteId,
         operation: 'UPDATE',
       });
-      console.log({changes});
       sq.applyChangesToLocalDB({ changes });
 
       const entry = sq.getById<any>({table_name: 'entry', row_id: changes[0].row_id});
@@ -124,7 +123,7 @@ describe('Sync', () => {
         operation: 'UPDATE',
       });
       await wait({ms: 100});
-      changes[0].modified = new Date().toISOString();
+      changes[0].modified = sq.utils.utcNowAsISO8601();
 
       sq.applyChangesToLocalDB({ changes });
       
@@ -145,7 +144,7 @@ describe('Sync', () => {
   describe('changes', () => {
     test('should move to pending when received out of order', () => {
       const sq = getNew();
-      const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
+      const deviceId = nanoid(TINYSYNQ_NANOID_SIZE);
       const constraints = new Map(Object.entries({
         'entry_journal_id':'journal',
       }));
@@ -179,14 +178,14 @@ describe('Sync', () => {
 
     test('should move to pending when attempting to update non-existent record', () => {
       const sq = getNew();
-      const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
+      const deviceId = nanoid(TINYSYNQ_NANOID_SIZE);
       const constraints = new Map(Object.entries({
         'entry_journal_id':'journal'
       }));
       const randomRecord = getRecordOrRandom({
         sq, table_name: 'journal'
       });
-      const target = nanoid(SYNQLITE_NANOID_SIZE);
+      const target = nanoid(TINYSYNQ_NANOID_SIZE);
       const fixed = {'entry_journal_id': randomRecord?.data.journal_id }
       const changes = generateChangesForTable({
         sq, 
@@ -214,7 +213,7 @@ describe('Sync', () => {
 
     test('when conflicted should keep REMOTE changes if they are newer', () => {
       const sq = getNew();
-      const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
+      const deviceId = nanoid(TINYSYNQ_NANOID_SIZE);
       const constraints = new Map(Object.entries({
         'entry_journal_id':'journal'
       }));
@@ -266,7 +265,7 @@ describe('Sync', () => {
 
     test('when conflicted should keep LOCAL changes if they are newer', () => {
       const sq = getNew();
-      const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
+      const deviceId = nanoid(TINYSYNQ_NANOID_SIZE);
       const constraints = new Map(Object.entries({
         'entry_journal_id':'journal'
       }));

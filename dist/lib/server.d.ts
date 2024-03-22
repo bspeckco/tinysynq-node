@@ -3,6 +3,7 @@ import { TinySynq } from './tinysynq.class.js';
 import { ILogObj, ISettingsParam } from 'tslog';
 export interface TSServerParams {
     ts: TinySynq;
+    port?: number;
     logOptions: ISettingsParam<ILogObj>;
 }
 export declare const startTinySynqServer: (params: TSServerParams) => uWS.TemplatedApp;

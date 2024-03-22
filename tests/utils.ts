@@ -4,7 +4,7 @@ import fs from 'fs';
 import { TinySynq } from '../src/lib/tinysynq.class.js';
 import { ILogObj, ISettingsParam } from 'tslog';
 import { nanoid } from 'nanoid';
-import { SYNQLITE_NANOID_SIZE } from '../src/lib/constants.js';
+import { TINYSYNQ_NANOID_SIZE } from '../src/lib/constants.js';
 import { testCreateTableItems, testInsertRowItem } from './test-data/items.data.js';
 
 const logLevel = LogLevel.Warn;
@@ -22,7 +22,7 @@ type ConfigureParams = {
 }
 
 export function getNanoId() {
-  return nanoid(SYNQLITE_NANOID_SIZE);
+  return nanoid(TINYSYNQ_NANOID_SIZE);
 }
 
 export function getConfiguredDb(configData?: {config?: ConfigureParams, useDefault?: boolean}): TinySynq {
@@ -179,7 +179,7 @@ export function getRandomDateTime(opts?: {asString?: boolean}) {
   const modified = time - Math.floor(Math.random() * 1000000);
   const date = new Date(modified);
   if (!asString) return date;
-  return date.toISOString().replace('Z', ''); 
+  return date.toISOString().replace(/[TZ]/g, ' ').trim(); 
 }
 
 export function getTableIdColumn({db, table}: {db: TinySynq, table: string}) {
@@ -356,7 +356,7 @@ export function alterRecordMeta({sq, table_name, row_id, updates}: AlterRecordMe
   Object.keys(updates).forEach(k => {
     setStatements.push(`${k} = :${k}`);
     if (k === 'modified') {
-      values[k] = updates.modified!.toISOString(); 
+      values[k] = updates.modified!.toISOString().replace(/[TZ]/g, ' ').trim(); 
     }
     else if (k === 'vclock') {
       values[k] = JSON.stringify(updates.vclock);

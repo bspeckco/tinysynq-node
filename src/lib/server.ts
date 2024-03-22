@@ -12,6 +12,7 @@ interface TSTemplatedApp extends uWS.TemplatedApp {
 
 export interface TSServerParams {
   ts: TinySynq,
+  port?: number;
   logOptions: ISettingsParam<ILogObj>
 }
 
@@ -22,7 +23,6 @@ function arrayBufferToString(arrBuff: ArrayBuffer): string {
 } 
 
 const app = uWS.App() as TSTemplatedApp;
-const port = Number(process.env.TINYSYNQ_PORT || 7174);
 
 // @TODO: request IDs
 
@@ -83,6 +83,7 @@ app.ws('/*', {
 });
 
 export const startTinySynqServer = (params: TSServerParams) => {
+  const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
   app.ts = params.ts;
   app.log = new Logger({
     name:'tinysynq-node-ws',

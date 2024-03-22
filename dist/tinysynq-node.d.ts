@@ -10,15 +10,9 @@ declare interface BaseLatestChangesOptions {
     /**
      * A device ID whose changes should be excluded from retrieval (usually the requester).
      */
-    exclude: string;
-    /**
-     * An ISO8601 date string. Providing this will limit retrieved changes to this date/time onwards.
-     */
-    since: string;
-    /**
-     * A
-     */
-    checkpoint: number;
+    exclude?: string;
+    since?: string;
+    checkpoint?: number;
 }
 
 /**
@@ -572,9 +566,10 @@ declare interface TinySynqOptionsWithInstance extends TinySynqOptionsBase {
  * Basic utilities, mainly date-oriented.
  */
 declare type Utils = {
-    strtimeAsISO8601: string;
+    strftimeAsISO8601: string;
     nowAsISO8601: string;
     utcNowAsISO8601: () => string;
+    isSafeISO8601: (date: string) => boolean;
 };
 
 declare type VClock = {

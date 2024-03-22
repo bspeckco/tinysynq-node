@@ -144,6 +144,7 @@ class VCompare {
 }
 
 const SYNQ_INSERT = 'INSERT';
+const TINYSYNQ_SAFE_ISO8601_REGEX = /^\d{4}(-\d{2}){2}\s(\d{2}:){2}\d{2}(\.\d{1,3})?$/;
 
 var _env$TINYSYNQ_LOG_LEV;
 const log = new tslog.Logger({
@@ -151,7 +152,7 @@ const log = new tslog.Logger({
   minLevel: (_env$TINYSYNQ_LOG_LEV = env.TINYSYNQ_LOG_LEVEL) != null ? _env$TINYSYNQ_LOG_LEV : LogLevel.Info,
   type: env.TINYSYNQ_LOG_FORMAT || 'json'
 });
-const strtimeAsISO8601 = `STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')`;
+const strftimeAsISO8601 = `STRFTIME('%Y-%m-%d %H:%M:%f','NOW')`;
 /**
  * The main class for managing SQLite3 synchronisation.
  *
@@ -184,10 +185,13 @@ class TinySynq {
      * @public
      */
     this.utils = {
-      strtimeAsISO8601,
-      nowAsISO8601: strtimeAsISO8601,
+      strftimeAsISO8601,
+      nowAsISO8601: strftimeAsISO8601,
       utcNowAsISO8601: () => {
-        return new Date().toISOString().replace('Z', '');
+        return new Date().toISOString().replace(/[TZ]/g, ' ').trim();
+      },
+      isSafeISO8601: date => {
+        return TINYSYNQ_SAFE_ISO8601_REGEX.test(date);
       }
     };
     if (!opts.filePath && !opts.sqlite3) {
@@ -654,6 +658,7 @@ class TinySynq {
     change,
     vclock
   }) {
+    if (!this.utils.isSafeISO8601(change.modified)) throw new Error(`Invalid modified data for record meta: ${change.modified}`);
     this.log.debug('<<< @insertRecordMeta >>>', {
       change,
       vclock
@@ -1102,24 +1107,24 @@ class TinySynq {
    * @param opts
    */
   getFilteredChanges(opts) {
-    let and = [];
+    let conditions = [];
     let values = {};
     if (opts != null && opts.exclude) {
-      and.push('source != :exclude');
+      conditions.push('source != :exclude');
       values.exclude = opts.exclude;
     }
     if (opts != null && opts.checkpoint) {
-      and.push('id > :checkpoint');
+      conditions.push('id > :checkpoint');
       values.checkpoint = opts.checkpoint;
     } else if (opts != null && opts.since) {
-      and.push('modified > :since');
+      conditions.push('modified > :since');
       values.since = opts.since;
     }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const sql = `
     SELECT id, table_name, row_id, data, operation, source, vclock, modified
     FROM ${this.synqPrefix}_changes
-    WHERE 1=1
-    ${and.join(' AND ')}
+    ${where} 
     ORDER BY modified ASC`;
     return this.runQuery({
       sql,
@@ -1461,7 +1466,7 @@ const initTinySynq = config => {
       row_id TEXT NOT NULL,
       conflict BLOB,
       message TEXT NOT NULL,
-      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
+      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
     );`
   });
   // Create record meta table and index
@@ -1474,7 +1479,7 @@ const initTinySynq = config => {
       mod INTEGER NOT NULL,
       source TEXT NOT NULL,
       vclock BLOB,
-      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
     );`
   });
   ts.run({
@@ -1561,7 +1566,6 @@ function arrayBufferToString(arrBuff) {
   return Buffer.from(arrBuff).toString();
 }
 const app = uWS__namespace.App();
-const port = Number(process.env.TINYSYNQ_PORT || 7174);
 // @TODO: request IDs
 app.ws('/*', {
   compression: uWS__namespace.SHARED_COMPRESSOR,
@@ -1635,6 +1639,7 @@ app.ws('/*', {
   }
 });
 const startTinySynqServer = params => {
+  const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
   app.ts = params.ts;
   app.log = new tslog.Logger({
     name: 'tinysynq-node-ws',

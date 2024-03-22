@@ -4,14 +4,14 @@ import { ApplyChangeParams, Change, LogLevel, QueryParams, TinySynqOptions, Sync
 import { Logger, ILogObj } from 'tslog';
 import { nanoid } from 'nanoid';
 import { VCompare } from './vcompare.class.js';
-import { SYNQ_INSERT } from './constants.js';
+import { SYNQ_INSERT, TINYSYNQ_ISO8601_REGEX, TINYSYNQ_SAFE_ISO8601_REGEX } from './constants.js';
 
 const log = new Logger({
   name: 'tinysync-node',
   minLevel: env.TINYSYNQ_LOG_LEVEL ?? LogLevel.Info,
   type: env.TINYSYNQ_LOG_FORMAT || 'json'
 });
-const strtimeAsISO8601 = `STRFTIME('%Y-%m-%dT%H:%M:%f','NOW')`;
+const strftimeAsISO8601 = `STRFTIME('%Y-%m-%d %H:%M:%f','NOW')`;
 
 type PreProcessChangeOptions = {
   change: Change, restore?: boolean
@@ -28,9 +28,10 @@ type PreProcessChangeResult = {
  * Basic utilities, mainly date-oriented.
  */
 export type Utils = {
-  strtimeAsISO8601: string,
+  strftimeAsISO8601: string,
   nowAsISO8601: string,
-  utcNowAsISO8601: () => string
+  utcNowAsISO8601: () => string,
+  isSafeISO8601: (date: string) => boolean
 }
 
 /**
@@ -68,11 +69,14 @@ export class TinySynq {
    * @public
    */
   readonly utils: Utils = {
-    strtimeAsISO8601,
-    nowAsISO8601: strtimeAsISO8601,
+    strftimeAsISO8601,
+    nowAsISO8601: strftimeAsISO8601,
     utcNowAsISO8601: (): string => {
-      return new Date().toISOString().replace('Z', '');
-    }
+      return new Date().toISOString().replace(/[TZ]/g, ' ').trim();
+    },
+    isSafeISO8601: (date: string) => {
+      return (TINYSYNQ_SAFE_ISO8601_REGEX.test(date));
+    },
   }
 
   /**
@@ -519,6 +523,7 @@ export class TinySynq {
   }
 
   insertRecordMeta({change, vclock}: {change: Change, vclock: VClock}) {
+    if (!this.utils.isSafeISO8601(change.modified)) throw new Error(`Invalid modified data for record meta: ${change.modified}`)
     this.log.debug('<<< @insertRecordMeta >>>', {change, vclock});
     const { table_name, row_id, source } = change;
     const mod = vclock[this._deviceId!] || 0;
@@ -867,25 +872,25 @@ export class TinySynq {
    * @param opts 
    */
   getFilteredChanges(opts?: LatestChangesOptions) {
-    let and: string[] = [];
+    let conditions: string[] = [];
     let values: any = {};
     if (opts?.exclude) {
-      and.push('source != :exclude');
+      conditions.push('source != :exclude');
       values.exclude = opts.exclude;
     }
     if (opts?.checkpoint) {
-      and.push('id > :checkpoint');
+      conditions.push('id > :checkpoint');
       values.checkpoint = opts.checkpoint;
     }
     else if (opts?.since) {
-      and.push('modified > :since');
+      conditions.push('modified > :since');
       values.since = opts.since
     }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const sql = `
     SELECT id, table_name, row_id, data, operation, source, vclock, modified
     FROM ${this.synqPrefix}_changes
-    WHERE 1=1
-    ${and.join(' AND ')}
+    ${where} 
     ORDER BY modified ASC`;
 
     return this.runQuery({sql, values});

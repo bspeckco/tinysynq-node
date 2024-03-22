@@ -210,15 +210,11 @@ interface BaseLatestChangesOptions {
   /**
    * A device ID whose changes should be excluded from retrieval (usually the requester).
    */
-  exclude: string;
-  /**
-   * An ISO8601 date string. Providing this will limit retrieved changes to this date/time onwards.
-   */
-  since: string;
-  /**
-   * A
-   */
-  checkpoint: number;
+  exclude?: string;
+
+  since?: string;
+
+  checkpoint?: number;
 }
 
 interface LatestChangesWithSince extends BaseLatestChangesOptions {

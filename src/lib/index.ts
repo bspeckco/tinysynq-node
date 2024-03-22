@@ -311,7 +311,7 @@ const initTinySynq = (config: TinySynqOptions) => {
       row_id TEXT NOT NULL,
       conflict BLOB,
       message TEXT NOT NULL,
-      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
+      created TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
     );`
   }); 
 
@@ -325,7 +325,7 @@ const initTinySynq = (config: TinySynqOptions) => {
       mod INTEGER NOT NULL,
       source TEXT NOT NULL,
       vclock BLOB,
-      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%dT%H:%M:%f','NOW'))
+      modified TIMESTAMP DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f','NOW'))
     );`
   });
 

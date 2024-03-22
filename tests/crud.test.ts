@@ -23,7 +23,7 @@ describe('CRUD', () => {
           vclock: {[sq.deviceId!]: 2}
         },
       ];
-      changes[0].modified = new Date().toISOString();
+      changes[0].modified = sq.utils.utcNowAsISO8601();
       sq.applyChangesToLocalDB({changes});
 
       // Verify update was applied
@@ -57,7 +57,7 @@ describe('CRUD', () => {
           vclock: {[sq.deviceId!]: 2},
         },
       ];
-      changes[0].modified = new Date().toISOString();
+      changes[0].modified = sq.utils.utcNowAsISO8601();
       sq.applyChangesToLocalDB({changes});
 
       // Verify item deletion was applied
@@ -84,7 +84,6 @@ describe('CRUD', () => {
           vclock: {[sq.deviceId!]: 1}
         },
       ];
-      changes[0].modified = new Date().toISOString();
       sq.applyChangesToLocalDB({changes});
 
       // Verify item insert were applied

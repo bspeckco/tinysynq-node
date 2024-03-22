@@ -3,9 +3,10 @@ import { Change, QueryParams, TinySynqOptions, SyncableTable, TableNameRowParams
  * Basic utilities, mainly date-oriented.
  */
 export type Utils = {
-    strtimeAsISO8601: string;
+    strftimeAsISO8601: string;
     nowAsISO8601: string;
     utcNowAsISO8601: () => string;
+    isSafeISO8601: (date: string) => boolean;
 };
 /**
  * Parameters for retrieving table's ID column.
