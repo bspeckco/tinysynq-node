@@ -144,7 +144,7 @@ describe.only('Bulk', () => {
       }
       
       const columns = [
-        'c.*','trm.source','trm.vclock'
+        'c.*'
       ];
 
       const changelog = dbA.getChangesSinceLastSync({columns});

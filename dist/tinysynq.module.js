@@ -457,9 +457,6 @@ class TinySynq {
     const sql = `
       SELECT ${columnSelection}
       FROM ${this._synqPrefix}_changes c
-      INNER JOIN ${this._synqPrefix}_record_meta trm
-      ON trm.table_name = c.table_name
-      AND trm.row_id = c.row_id
       ${where}
       ORDER BY c.modified ASC
     `;
@@ -1696,7 +1693,7 @@ const startTinySynqServer = params => {
   app.ts = params.ts;
   app.log = new Logger({
     name: 'tinysynq-node-ws',
-    minLevel: Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
+    minLevel: params.logOptions.minLevel || Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
     type: env.TINYSYNQ_LOG_FORMAT || 'json',
     ...(params.logOptions || {})
   });

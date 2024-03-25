@@ -87,7 +87,7 @@ export const startTinySynqServer = (params: TSServerParams) => {
   app.ts = params.ts;
   app.log = new Logger({
     name:'tinysynq-node-ws',
-    minLevel: Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
+    minLevel: params.logOptions.minLevel || Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
     type: env.TINYSYNQ_LOG_FORMAT || 'json',
     ...(params.logOptions || {})
   });
