@@ -1,9 +1,13 @@
-import { describe, expect, test } from "vitest";
+import { afterAll, describe, expect, test } from "vitest";
 import { TinySynq } from "../src/lib/tinysynq.class.js";
 import { TINYSYNQ_SAFE_ISO8601_REGEX } from "../src/lib/constants.js";
+import { getConfiguredDb, removeDb } from "./utils.js";
 
 const filePath = '/tmp/tst000.db';
 describe('TinySynq', () => {
+  afterAll(() => {
+    removeDb({filePath});
+  });
   describe('Utils', () => {
     test('strftimeAsISO8601 returns a SQLite expression to generate an ISO-8601 string', () => {
       const ts = new TinySynq({
@@ -60,6 +64,32 @@ describe('TinySynq', () => {
       for (const d of valid) {
         expect(ts.utils.isSafeISO8601(d)).toBeTruthy();
       }
+    });
+  });
+
+  describe('SQL', () => {
+    test('should create INSERT SQL', () => {
+      const ts = getConfiguredDb({useDefault: true, config: {
+        filePath,
+      }});
+      const data = {item_id: 'item001', item_name: 'test001'};
+      const sql = ts.createInsertFromObject({data, table_name: 'items'}).trim();
+      const expected = 
+      `INSERT INTO items (item_id,item_name)
+      VALUES (:item_id,:item_name)
+      ON CONFLICT DO UPDATE SET item_id = :item_id,item_name = :item_name
+      RETURNING *;`.replace(/\s+/g, ' ');
+      expect(sql.replace(/\s+/g, ' ')).toEqual(expected);
+    });
+
+    test('should create UPDATE SQL', () => {
+      const ts = getConfiguredDb({useDefault: true, config: {
+        filePath,
+      }});
+      const data = {item_name: 'test001'};
+      const sql = ts.createUpdateFromObject({data, table_name: 'items'}).trim();
+      const expected = `UPDATE items SET item_name = :item_name WHERE item_id = :item_id RETURNING *;`;
+      expect(sql.replace(/\s+/g, ' ')).toEqual(expected);
     });
   });
 });

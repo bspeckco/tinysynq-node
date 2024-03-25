@@ -707,13 +707,14 @@ export class TinySynq {
    */
   createInsertFromObject({data, table_name: table}: { data: Record<string, any>, table_name: string }) {
     const columnsToInsert = Object.keys(data).join(',');
-    const editable = this._synqTables![table].editable || [];
+    //const editable = this._synqTables![table].editable || [];
     const updates = Object.keys(data)
-      .filter(key => editable.includes(key))
+      // @TODO: There's no need to restrict editable fields here, but check again.
+      //.filter(key => editable.includes(key))
       .map(k => `${k} = :${k}`)
       .join(',');
     
-    if (!updates) throw new Error('No changes available');
+    if (!updates) throw new Error(`No insertable data: ${JSON.stringify(data)}`);
     const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
     const insertSql = `
       INSERT INTO ${table} (${columnsToInsert})
@@ -722,6 +723,37 @@ export class TinySynq {
       RETURNING *;`;
 
     return insertSql;
+  }
+
+  /**
+   * Creates an update query based on the syncable table name and data provided.
+   * 
+   * @remarks
+   * 
+   * This method is specifically for tables that have been registerd as syncable
+   * by passing them in as a {@link SyncableTable} at instantiation.
+   * 
+   * @see {@link SyncableTable} for more information.
+   * 
+   * @param param0 - Parameters from which to create the query.
+   * @returns A SQL query string. 
+   */
+  createUpdateFromObject({data, table_name: table}: { data: Record<string, any>, table_name: string }) {
+    if (!this._synqTables![table]) throw new Error(`Not a synced table for update: ${table}`);
+
+    const idCol = this._synqTables![table].id;
+    const updates = Object.keys(data)
+      .filter(k => k !== idCol)
+      .map(k => `${k} = :${k}`)
+      .join(',');
+    if (!updates) throw new Error(`No updates available: ${JSON.stringify(data)}`);
+  
+    const updateSql = `
+      UPDATE ${table} SET ${updates}
+      WHERE ${idCol} = :${idCol}
+      RETURNING *;`;
+
+    return updateSql;
   }
 
   /**
@@ -738,7 +770,7 @@ export class TinySynq {
       .map(k => `${k} = :${k}`)
       .join(',');
     
-    if (!updates) throw new Error('No changes availble');
+    if (!updates) throw new Error('No changes available');
     const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
     const insertSql = `
       INSERT INTO ${table} (${columnsToInsert})
@@ -768,7 +800,7 @@ export class TinySynq {
       data: values,
       table_name: `${this.synqPrefix}_changes`
     });
-    this.log.warn('@insertChangeData', {sql, values});
+    this.log.debug('@insertChangeData', {sql, values});
 
     values.vclock = JSON.stringify(change.vclock);
     this.run({sql, values});
@@ -789,10 +821,12 @@ export class TinySynq {
       }
 
       const table = this.synqTables![change.table_name];
+      const idCol = this.getTableIdColumn(change);
       let recordData: any;
       if (change.data) {
         try {
           recordData = JSON.parse(change.data);
+          recordData[idCol] = change.row_id;
         }
         catch(err) {
           this.log.debug(change);
@@ -812,12 +846,18 @@ export class TinySynq {
 
       switch(change.operation) {
         case 'INSERT':
-        case 'UPDATE':
           const insertSql = this.createInsertFromObject({
             data: recordData,
             table_name: change.table_name
           });
           this.run({sql: insertSql, values: recordData});
+          break;
+        case 'UPDATE':
+          const updateSql = this.createUpdateFromObject({
+            data: recordData,
+            table_name: change.table_name,
+          });
+          this.run({sql: updateSql, values: recordData});
           break;
         case 'DELETE':
           const sql = `DELETE FROM ${change.table_name} WHERE ${table.id} = ?`;
@@ -840,7 +880,7 @@ export class TinySynq {
   }
   
   applyChangesToLocalDB({ changes, restore = false }: { changes: Change[], restore?: boolean }) {
-    this.log.debug('\n<<< @CHANGES >>>\n', changes, '\n<<< @CHANGES >>>\n')
+    this.log.trace('\n<<< @CHANGES >>>\n', changes, '\n<<< @CHANGES >>>\n')
     this.disableTriggers();
     // Split changes into batches
     for (let i = 0; i < changes.length; i += this.synqBatchSize) {

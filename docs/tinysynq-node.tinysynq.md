@@ -43,6 +43,7 @@ Expects SQLite3 version &gt;<!-- -->=3.45.1
 |  [applyChangesToLocalDB({ changes, restore })](./tinysynq-node.tinysynq.applychangestolocaldb.md) |  |  |
 |  [clearDebugData()](./tinysynq-node.tinysynq.cleardebugdata.md) |  | Empties the <code>*_dump</code> table. |
 |  [createInsertFromObject({ data, table\_name: table })](./tinysynq-node.tinysynq.createinsertfromobject.md) |  | Creates an insert query based on the syncable table name and data provided. |
+|  [createUpdateFromObject({ data, table\_name: table })](./tinysynq-node.tinysynq.createupdatefromobject.md) |  | Creates an update query based on the syncable table name and data provided. |
 |  [disableDebug()](./tinysynq-node.tinysynq.disabledebug.md) |  | Writes debug mode value (false) which disables recording of operations on syncable tables. |
 |  [enableDebug()](./tinysynq-node.tinysynq.enabledebug.md) |  | Writes debug mode value (true) which disables recording of operations on syncable tables. |
 |  [getById(params)](./tinysynq-node.tinysynq.getbyid.md) |  | Retrieves a single record by it's ID. |

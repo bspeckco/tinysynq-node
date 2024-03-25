@@ -3,15 +3,15 @@ import { LogLevel } from '../src/lib/types.js';
 import { nanoid } from 'nanoid';
 import fs from 'fs';
 import { Logger } from 'tslog';
-import { getConfiguredDb, getRandomColumnUpdate, removeDb } from './utils.js';
+import { getConfiguredDb, getRandomColumnUpdate, removeDb, wait } from './utils.js';
 
 const ID_SIZE = 16; // 1000 years to reach 1% probability of collision at 1000 IDs per second
 const logLevel = LogLevel.Warn;
 
-describe('Bulk', () => {
+describe.only('Bulk', () => {
 
   describe('Multiple changes', () => {
-    test('Multiple inserts, updates and deletes', () => {
+    test('Multiple inserts, updates and deletes', async () => {
       const log = new Logger({ name: 'multi-in-up-de', minLevel: logLevel });
       const preInit = [
         `CREATE TABLE IF NOT EXISTS member (
@@ -45,7 +45,8 @@ describe('Bulk', () => {
       `;
       const memberVals: any[] = [];
       const messageVals: any[] = [];
-      for (let i = 0; i < 20; i++) {
+      const maxRecords =  20;
+      for (let i = 0; i < maxRecords; i++) {
         const id = nanoid(ID_SIZE);
         memberVals.push({
           member_id: id,
@@ -53,7 +54,7 @@ describe('Bulk', () => {
           member_status: 'ONLINE'
         });
       }
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < maxRecords; i++) {
         const id = nanoid(ID_SIZE);
         messageVals.push({
           message_id: id,
@@ -74,7 +75,8 @@ describe('Bulk', () => {
           ],
           prefix: 'tstchta',
           preInit,
-          postInit: ['select 1'] // override default test postInit
+          postInit: ['select 1'], // override default test postInit
+          debug: true
         },
       });
 
@@ -92,7 +94,7 @@ describe('Bulk', () => {
       const changes = dbA.getChangesSinceLastSync();
       expect(changes?.length).toBeGreaterThan(0);
 
-      fs.copyFileSync(dbFileA, dbFileB);
+      //fs.copyFileSync(dbFileA, dbFileB);
       const dbB = getConfiguredDb({
         config: {
           filePath: dbFileB,
@@ -101,6 +103,8 @@ describe('Bulk', () => {
             {name: 'message', id: 'message_id', editable: ['message_text']},
           ],
           preInit,
+          logOptions: {minLevel: 3},
+          debug: true
         }
       });
 
@@ -114,33 +118,37 @@ describe('Bulk', () => {
         }
       };
 
-      console.log('::: update random :::');
-
-      for (let i = 0; i < 5000; i++) {
+      for (let i = 0; i < 10000; i++) {
         const { randVal, randCol, randTable } = getRandomColumnUpdate({ editableTables });
-
-        // console.log({randVal, randCol, randTable});
         const idCol = dbA.synqTables![randTable].id;
 
         if (!idCol) {
           console.warn(`Unable to determine ID column for '${randTable}'`);
           continue;
         }
+        
         const itemToUpdate = dbA.runQuery<any>({
-          sql: `SELECT ${idCol} FROM ${randTable} ORDER BY RANDOM() LIMIT 1;`
+          sql: `SELECT ${idCol}, ${randCol} FROM ${randTable} ORDER BY RANDOM() LIMIT 1;`
         });
         const updateData = {[randCol]: randVal, [idCol]: itemToUpdate[0][idCol]};
         //log.trace('@@@>>> ', {randTable, randCol, idCol, randVal, updateData});
-
+        if (itemToUpdate[0][randCol] === updateData[randCol]) {
+          updateData[randCol] = `Override: ${nanoid(16)}`;
+        }
+        const updateSql = `UPDATE ${randTable} SET ${randCol} = :${randCol} WHERE ${idCol} = :${idCol}`;
+        
         dbA.run({
-          sql: `UPDATE ${randTable} SET ${randCol} = :${randCol} WHERE ${idCol} = :${idCol}`,
+          sql: updateSql,
           values: updateData
         });
       }
+      
       const columns = [
         'c.*','trm.source','trm.vclock'
       ];
+
       const changelog = dbA.getChangesSinceLastSync({columns});
+      log.warn(`@changeLog ${dbA.dbPath} (partial)`, changelog.slice(-2))
 
       expect(changelog).toBeTruthy();
 
@@ -179,7 +187,9 @@ describe('Bulk', () => {
       removeDb({filePath: dbFileA});
       removeDb({filePath: dbFileB});
 
+      // All necessary checks have taken place already.
+      // If it gets here, it's all good.
       expect(true).toBe(true);
     });
-  })
+  });
 });

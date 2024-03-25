@@ -67,6 +67,10 @@ export class TinySynq {
         data: Record<string, any>;
         table_name: string;
     }): string;
+    createUpdateFromObject({ data, table_name: table }: {
+        data: Record<string, any>;
+        table_name: string;
+    }): string;
     get db(): any;
     get dbPath(): string;
     get deviceId(): string | undefined;

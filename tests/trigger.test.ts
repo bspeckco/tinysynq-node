@@ -1,24 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { generateUpdateDiffQuery, getOldVsNewColumnSelection, getOldVsNewUnionSelects } from "../src/lib/trigger.js";
+import { getUpdateTriggerDiffQuery, getOldVsNewUnionColumnSelection } from "../src/lib/trigger.js";
 import { getConfiguredDb } from "./utils.js";
-import { testCreateTableUser, testFinalDiffQuery, testOldVsNewSelectionSample, testOldVsNewUnionSelectsSample, testPragmaTableInfo } from "./test-data/trigger.data.js";
+import { testCreateTableUser, testFinalDiffQuery, testOldVsNewUnionColumnSelectionSample, testPragmaTableInfo } from "./test-data/trigger.data.js";
 
 describe('Trigger', () => {
   test('getOldVsNewColumnSelection', () => {    
     const columns = testPragmaTableInfo;
-    const selection = getOldVsNewColumnSelection({columns});
-    expect(selection).toHaveLength(12);
-    expect(selection).toMatchObject(testOldVsNewSelectionSample);
+    const selection = getOldVsNewUnionColumnSelection({columns});
+    expect(selection).toHaveLength(6);
+    expect(selection).toMatchObject(testOldVsNewUnionColumnSelectionSample);
   });
 
-  test('getOldVsNewUnionSelects', () => {    
-    const columns = testPragmaTableInfo;
-    const selects = getOldVsNewUnionSelects({columns});
-    expect(selects).toHaveLength(6);
-    expect(selects).toMatchObject(testOldVsNewUnionSelectsSample);
-  });
-
-  
   test('generateUpdateDiffQuery', () => {
     const ts = getConfiguredDb({
       useDefault: false,
@@ -28,7 +20,7 @@ describe('Trigger', () => {
         postInit: []
       }
     });
-    const sql = generateUpdateDiffQuery({ts, table: ts.synqTables!.user});
-    expect(sql.replace(/\s+/g,'')).toEqual(testFinalDiffQuery.replace(/\s+/g,''));
+    const sql = getUpdateTriggerDiffQuery({ts, table: ts.synqTables!.user});
+    expect(sql.replace(/\s+/g,'')).toEqual(testFinalDiffQuery.replace('{{synqPrefix}}', ts.synqPrefix!).replace(/\s+/g,''));
   });
 });

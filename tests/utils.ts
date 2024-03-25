@@ -63,8 +63,9 @@ export function removeDb({filePath}: {filePath: string}) {
     fs.unlinkSync(filePath+'-shm');
     fs.unlinkSync(filePath+'-wal'); 
   }
-  catch(err) {
+  catch(err: any) {
     // File is already gone
+    console.warn(err, err.stack);
   }
 }
 

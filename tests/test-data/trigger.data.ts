@@ -64,53 +64,36 @@ export const testPragmaTableInfo = [
   }
 ];
 
-export const testOldVsNewSelectionSample = [
-  "substr(group_concat(CAST(user_id AS TEXT), ':|:'), 1, LENGTH(CAST(user_id AS TEXT))) as o_user_id",
-  "substr(group_concat(CAST(user_id AS TEXT), ':|:'), LENGTH(CAST(user_id AS TEXT)) + 4) as n_user_id",
-  "substr(group_concat(CAST(user_uuid AS TEXT), ':|:'), 1, LENGTH(CAST(user_uuid AS TEXT))) as o_user_uuid",
-  "substr(group_concat(CAST(user_uuid AS TEXT), ':|:'), LENGTH(CAST(user_uuid AS TEXT)) + 4) as n_user_uuid",
-  "substr(group_concat(CAST(user_admin AS TEXT), ':|:'), 1, LENGTH(CAST(user_admin AS TEXT))) as o_user_admin",
-  "substr(group_concat(CAST(user_admin AS TEXT), ':|:'), LENGTH(CAST(user_admin AS TEXT)) + 4) as n_user_admin",
-  "substr(group_concat(CAST(user_internal AS TEXT), ':|:'), 1, LENGTH(CAST(user_internal AS TEXT))) as o_user_internal",
-  "substr(group_concat(CAST(user_internal AS TEXT), ':|:'), LENGTH(CAST(user_internal AS TEXT)) + 4) as n_user_internal",
-  "substr(group_concat(CAST(user_system AS TEXT), ':|:'), 1, LENGTH(CAST(user_system AS TEXT))) as o_user_system",
-  "substr(group_concat(CAST(user_system AS TEXT), ':|:'), LENGTH(CAST(user_system AS TEXT)) + 4) as n_user_system",
-  "substr(group_concat(CAST(user_gnid AS TEXT), ':|:'), 1, LENGTH(CAST(user_gnid AS TEXT))) as o_user_gnid",
-  "substr(group_concat(CAST(user_gnid AS TEXT), ':|:'), LENGTH(CAST(user_gnid AS TEXT)) + 4) as n_user_gnid"
-];
-
-export const testOldVsNewUnionSelectsSample = [
-  "SELECT 'user_id' as prop, o_user_id as o_val, n_user_id as n_val FROM old_new",
-  "SELECT 'user_uuid' as prop, o_user_uuid as o_val, n_user_uuid as n_val FROM old_new",
-  "SELECT 'user_admin' as prop, o_user_admin as o_val, n_user_admin as n_val FROM old_new",
-  "SELECT 'user_internal' as prop, o_user_internal as o_val, n_user_internal as n_val FROM old_new",
-  "SELECT 'user_system' as prop, o_user_system as o_val, n_user_system as n_val FROM old_new",
-  "SELECT 'user_gnid' as prop, o_user_gnid as o_val, n_user_gnid as n_val FROM old_new"
+export const testOldVsNewUnionColumnSelectionSample = [
+  "SELECT 'user_id' AS col, OLD.user_id AS old_val, NEW.user_id AS new_val",
+  "SELECT 'user_uuid' AS col, OLD.user_uuid AS old_val, NEW.user_uuid AS new_val",
+  "SELECT 'user_admin' AS col, OLD.user_admin AS old_val, NEW.user_admin AS new_val",
+  "SELECT 'user_internal' AS col, OLD.user_internal AS old_val, NEW.user_internal AS new_val",
+  "SELECT 'user_system' AS col, OLD.user_system AS old_val, NEW.user_system AS new_val",
+  "SELECT 'user_gnid' AS col, OLD.user_gnid AS old_val, NEW.user_gnid AS new_val"
 ];
 
 export const testFinalDiffQuery = `
-SELECT *
-FROM (
-  WITH old_new AS (
-    SELECT 
-      substr(group_concat(CAST(user_id AS TEXT), ':|:'), 1, LENGTH(CAST(user_id AS TEXT))) as o_user_id,substr(group_concat(CAST(user_id AS TEXT), ':|:'), LENGTH(CAST(user_id AS TEXT)) + 4) as n_user_id,substr(group_concat(CAST(user_uuid AS TEXT), ':|:'), 1, LENGTH(CAST(user_uuid AS TEXT))) as o_user_uuid,substr(group_concat(CAST(user_uuid AS TEXT), ':|:'), LENGTH(CAST(user_uuid AS TEXT)) + 4) as n_user_uuid,substr(group_concat(CAST(user_admin AS TEXT), ':|:'), 1, LENGTH(CAST(user_admin AS TEXT))) as o_user_admin,substr(group_concat(CAST(user_admin AS TEXT), ':|:'), LENGTH(CAST(user_admin AS TEXT)) + 4) as n_user_admin,substr(group_concat(CAST(user_internal AS TEXT), ':|:'), 1, LENGTH(CAST(user_internal AS TEXT))) as o_user_internal,substr(group_concat(CAST(user_internal AS TEXT), ':|:'), LENGTH(CAST(user_internal AS TEXT)) + 4) as n_user_internal,substr(group_concat(CAST(user_system AS TEXT), ':|:'), 1, LENGTH(CAST(user_system AS TEXT))) as o_user_system,substr(group_concat(CAST(user_system AS TEXT), ':|:'), LENGTH(CAST(user_system AS TEXT)) + 4) as n_user_system,substr(group_concat(CAST(user_gnid AS TEXT), ':|:'), 1, LENGTH(CAST(user_gnid AS TEXT))) as o_user_gnid,substr(group_concat(CAST(user_gnid AS TEXT), ':|:'), LENGTH(CAST(user_gnid AS TEXT)) + 4) as n_user_gnid
-    FROM (
-      SELECT 0 as peg, OLD.user_id,OLD.user_uuid,OLD.user_admin,OLD.user_internal,OLD.user_system,OLD.user_gnid
-      UNION ALL 
-      SELECT 1 as peg, NEW.user_id,NEW.user_uuid,NEW.user_admin,NEW.user_internal,NEW.user_system,NEW.user_gnid
-    )
-    ORDER BY peg ASC
+INSERT INTO {{synqPrefix}}_changes (table_name, row_id, operation, data)
+SELECT * FROM (
+  WITH RECURSIVE all_cols AS (
+    SELECT 'user_id' AS col, OLD.user_id AS old_val, NEW.user_id AS new_val
+    UNION ALL
+    SELECT 'user_uuid' AS col, OLD.user_uuid AS old_val, NEW.user_uuid AS new_val
+    UNION ALL
+    SELECT 'user_admin' AS col, OLD.user_admin AS old_val, NEW.user_admin AS new_val
+    UNION ALL
+    SELECT 'user_internal' AS col, OLD.user_internal AS old_val, NEW.user_internal AS new_val
+    UNION ALL
+    SELECT 'user_system' AS col, OLD.user_system AS old_val, NEW.user_system AS new_val
+    UNION ALL
+    SELECT 'user_gnid' AS col, OLD.user_gnid AS old_val, NEW.user_gnid AS new_val
+  ),
+  changed_cols AS (
+    SELECT col, new_val
+    FROM all_cols
+    WHERE new_val != old_val
   )
-  SELECT 'user_id' as prop, o_user_id as o_val, n_user_id as n_val FROM old_new
-UNION ALL
-SELECT 'user_uuid' as prop, o_user_uuid as o_val, n_user_uuid as n_val FROM old_new
-UNION ALL
-SELECT 'user_admin' as prop, o_user_admin as o_val, n_user_admin as n_val FROM old_new
-UNION ALL
-SELECT 'user_internal' as prop, o_user_internal as o_val, n_user_internal as n_val FROM old_new
-UNION ALL
-SELECT 'user_system' as prop, o_user_system as o_val, n_user_system as n_val FROM old_new
-UNION ALL
-SELECT 'user_gnid' as prop, o_user_gnid as o_val, n_user_gnid as n_val FROM old_new
-)
-WHERE o_val != n_val;`;
+  SELECT 'user', NEW.user_id, 'UPDATE', json_group_object(col, new_val)
+  FROM changed_cols
+);`;

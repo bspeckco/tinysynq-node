@@ -910,9 +910,12 @@
       table_name: table
     }) {
       const columnsToInsert = Object.keys(data).join(',');
-      const editable = this._synqTables[table].editable || [];
-      const updates = Object.keys(data).filter(key => editable.includes(key)).map(k => `${k} = :${k}`).join(',');
-      if (!updates) throw new Error('No changes available');
+      //const editable = this._synqTables![table].editable || [];
+      const updates = Object.keys(data)
+      // @TODO: There's no need to restrict editable fields here, but check again.
+      //.filter(key => editable.includes(key))
+      .map(k => `${k} = :${k}`).join(',');
+      if (!updates) throw new Error(`No insertable data: ${JSON.stringify(data)}`);
       const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
       const insertSql = `
       INSERT INTO ${table} (${columnsToInsert})
@@ -920,6 +923,33 @@
       ON CONFLICT DO UPDATE SET ${updates}
       RETURNING *;`;
       return insertSql;
+    }
+    /**
+     * Creates an update query based on the syncable table name and data provided.
+     *
+     * @remarks
+     *
+     * This method is specifically for tables that have been registerd as syncable
+     * by passing them in as a {@link SyncableTable} at instantiation.
+     *
+     * @see {@link SyncableTable} for more information.
+     *
+     * @param param0 - Parameters from which to create the query.
+     * @returns A SQL query string.
+     */
+    createUpdateFromObject({
+      data,
+      table_name: table
+    }) {
+      if (!this._synqTables[table]) throw new Error(`Not a synced table for update: ${table}`);
+      const idCol = this._synqTables[table].id;
+      const updates = Object.keys(data).filter(k => k !== idCol).map(k => `${k} = :${k}`).join(',');
+      if (!updates) throw new Error(`No updates available: ${JSON.stringify(data)}`);
+      const updateSql = `
+      UPDATE ${table} SET ${updates}
+      WHERE ${idCol} = :${idCol}
+      RETURNING *;`;
+      return updateSql;
     }
     /**
      * Creates an insert query based on the system table name and data provided.
@@ -937,7 +967,7 @@
       });
       const columnsToInsert = Object.keys(data).join(',');
       const updates = Object.keys(data).map(k => `${k} = :${k}`).join(',');
-      if (!updates) throw new Error('No changes availble');
+      if (!updates) throw new Error('No changes available');
       const insertPlaceholders = Object.keys(data).map(k => `:${k}`).join(',');
       const insertSql = `
       INSERT INTO ${table} (${columnsToInsert})
@@ -974,7 +1004,7 @@
         data: values,
         table_name: `${this.synqPrefix}_changes`
       });
-      this.log.warn('@insertChangeData', {
+      this.log.debug('@insertChangeData', {
         sql,
         values
       });
@@ -1003,10 +1033,12 @@
           return;
         }
         const table = this.synqTables[change.table_name];
+        const idCol = this.getTableIdColumn(change);
         let recordData;
         if (change.data) {
           try {
             recordData = JSON.parse(change.data);
+            recordData[idCol] = change.row_id;
           } catch (err) {
             this.log.debug(change);
             throw new Error('Invalid data for insert or update');
@@ -1027,13 +1059,22 @@
         });
         switch (change.operation) {
           case 'INSERT':
-          case 'UPDATE':
             const insertSql = this.createInsertFromObject({
               data: recordData,
               table_name: change.table_name
             });
             this.run({
               sql: insertSql,
+              values: recordData
+            });
+            break;
+          case 'UPDATE':
+            const updateSql = this.createUpdateFromObject({
+              data: recordData,
+              table_name: change.table_name
+            });
+            this.run({
+              sql: updateSql,
               values: recordData
             });
             break;
@@ -1069,7 +1110,7 @@
       changes,
       restore = false
     }) {
-      this.log.debug('\n<<< @CHANGES >>>\n', changes, '\n<<< @CHANGES >>>\n');
+      this.log.trace('\n<<< @CHANGES >>>\n', changes, '\n<<< @CHANGES >>>\n');
       this.disableTriggers();
       // Split changes into batches
       for (let i = 0; i < changes.length; i += this.synqBatchSize) {
@@ -1133,6 +1174,40 @@
       this.enableTriggers();
     }
   }
+
+  const getOldVsNewUnionColumnSelection = params => {
+    if (!params.columns) throw new Error('Missing table column data to generate trigger union column selection');
+    return params.columns.map(c => `SELECT '${c.name}' AS col, OLD.${c.name} AS old_val, NEW.${c.name} AS new_val`);
+  };
+  const getUpdateTriggerDiffQuery = params => {
+    const {
+      ts,
+      table
+    } = params;
+    // Need to get the table schema in order to generate the query.
+    const columns = ts.runQuery({
+      sql: `SELECT * FROM pragma_table_info('${table.name}')`
+    });
+    const unionSelects = getOldVsNewUnionColumnSelection({
+      columns
+    });
+    const sql = `
+  INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation, data)
+  SELECT * FROM (
+    WITH RECURSIVE all_cols AS (
+      ${unionSelects.join('\n    UNION ALL\n    ')}
+    ),
+    changed_cols AS (
+      SELECT col, new_val
+      FROM all_cols
+      WHERE new_val != old_val
+    )
+    SELECT '${table.name}', NEW.${table.id}, 'UPDATE', json_group_object(col, new_val)
+    FROM changed_cols
+  );`;
+    console.log('@getUpdateTriggerDiffQuery', sql);
+    return sql;
+  };
 
   /**
    * Returns a configured instance of TinySynq
@@ -1283,8 +1358,10 @@
       FOR EACH ROW
       WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'triggers_on')='1'
       BEGIN
-        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation, data)
-        VALUES ('${table.name}', NEW.${table.id}, 'UPDATE', ${jsonObject.jo});
+        ${getUpdateTriggerDiffQuery({
+      ts,
+      table
+    })}
 
         ${getRecordMetaInsertQuery({
       table
@@ -1293,7 +1370,6 @@
         ${getChangeUpdateQuery({
       table
     })}
-
       END;`;
       ts.run({
         sql: updateTriggerSql

@@ -316,6 +316,23 @@ export declare class TinySynq {
         table_name: string;
     }): string;
     /**
+     * Creates an update query based on the syncable table name and data provided.
+     *
+     * @remarks
+     *
+     * This method is specifically for tables that have been registerd as syncable
+     * by passing them in as a {@link SyncableTable} at instantiation.
+     *
+     * @see {@link SyncableTable} for more information.
+     *
+     * @param param0 - Parameters from which to create the query.
+     * @returns A SQL query string.
+     */
+    createUpdateFromObject({ data, table_name: table }: {
+        data: Record<string, any>;
+        table_name: string;
+    }): string;
+    /**
      * Creates an insert query based on the system table name and data provided.
      *
      * @param param0 - Parameters from which to create the query.
