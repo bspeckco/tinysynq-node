@@ -18,7 +18,7 @@
     "build": "microbundle --target node",
     "watch": "microbundle --target node watch",
     "test": "vitest",
-    "prepare": "husky",
+    "prepare": "if [ -z \"$SKIP_PREPARE\" ]; then echo $SKIP_PREPARE; echo '@prepare'; husky; fie",
     "docs": "api-extractor run --local --verbose && api-documenter markdown --input-folder temp --output-folder docs",
     "commitlint": "commitlint --config ./config/commitlint.config.js --edit $1"
   },
