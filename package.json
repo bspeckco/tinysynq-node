@@ -2,6 +2,7 @@
   "name": "tinysynq-node",
   "type": "module",
   "source": "src/index.ts",
+  "license": "MIT",
   "engines": {
     "node": ">=18.18.2"
   },
