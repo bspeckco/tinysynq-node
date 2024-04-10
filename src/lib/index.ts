@@ -102,11 +102,14 @@ const initTinySynq = (config: TinySynqOptions) => {
     log.debug('Setting up triggers for', table.name);
 
     // Template for inserting the new value as JSON in the `*_changes` table.
-    const jsonObject = (ts.runQuery<any>({
+    const jsonObject = ts.runQuery<any>({
       sql:`
       SELECT 'json_object(' || GROUP_CONCAT('''' || name || ''', NEW.' || name, ',') || ')' AS jo
       FROM pragma_table_info('${table.name}');`
-    }))[0];
+    })[0];
+
+    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD');
+    
     log.silly('@jsonObject', JSON.stringify(jsonObject, null, 2));
 
     /**
@@ -148,13 +151,22 @@ const initTinySynq = (config: TinySynqOptions) => {
       END;`
     ts.run({sql: updateTriggerSql});
 
+    /*
+    Stores current record as JSON in `data` column as is done for INSERTs.
+    This will act as a "tombstone" record in case of update-after-delete.
+
+    Restoration will involve checking for a DELETE change for the table/row_id
+    and reinserting it if it exists, then applying the incoming update. Finally,
+    a record is added to `*_notice` informing of the resurrection.
+    */
     const deleteTriggerSql = `
       CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_after_delete_${table.name}
       AFTER DELETE ON ${table.name}
       FOR EACH ROW
       WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'triggers_on')='1'
       BEGIN
-        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation) VALUES ('${table.name}', OLD.${table.id}, 'DELETE');
+        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation, data)
+        VALUES ('${table.name}', OLD.${table.id}, 'DELETE', ${oldJsonObject});
         
         ${getRecordMetaInsertQuery({table, remove: true})}
 
@@ -202,8 +214,6 @@ const initTinySynq = (config: TinySynqOptions) => {
       END;`
     });
 
-    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD');
-    
     ts.run({
       sql:`
       CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_after_delete_${table.name}

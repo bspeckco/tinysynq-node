@@ -172,6 +172,8 @@ describe('Sync', () => {
       changes[0].vclock[deviceId] = 2;
       sq.applyChangesToLocalDB({ changes });
       const pending = sq.getPending();
+
+      removeDb({ filePath: sq.dbPath });
       expect(pending.length).toBe(1);
       expect(pending[0].row_id).toBe(randomEntry.entry_id);
     });
@@ -206,8 +208,8 @@ describe('Sync', () => {
 
       sq.applyChangesToLocalDB({ changes });
       const pending = sq.getPending();
-      removeDb({ filePath: sq.dbPath });
 
+      removeDb({ filePath: sq.dbPath });
       expect(pending.length).toBe(1);
     });
 
@@ -308,28 +310,33 @@ describe('Sync', () => {
       expect(lastSyncBefore).not.toEqual(lastSyncAfter);
     });
 
-/*
-    test('when conflicted should apply REMOTE changes if they are newer', () => {
+    test('valid update-after-delete should ressurect the deleted record', async () => {
       const sq = getNew();
-      const deviceId = nanoid(SYNQLITE_NANOID_SIZE);
-      const constraints = new Map(Object.entries({
-        'entry_journal_id':'journal'
-      }));
-      const randomJournal = getRecordOrRandom({
-        sq, table_name: 'journal'
-      }).data;
       const randomEntry = getRecordOrRandom({
         sq, table_name: 'entry'
       }).data;
-      const metaParams = {
-        table_name: 'entry',
-        row_id: randomEntry.entry_id
-      };
-      const entryMeta = sq.getRecordMeta(metaParams);
-      const lastSyncBefore = sq.getLastSync();
+
+      // Delete the item
+      const result = sq.run({
+        sql: `
+        DELETE FROM entry
+        WHERE entry_id = :entry_id`,
+        values: {entry_id: randomEntry.entry_id}
+      });
+      console.log('@RESULT', result);
+      const changes = sq.getFilteredChanges();
+      log.warn('@POST-DELETE CHANGES', changes);
+
+      // Simulate update on the same record from a different device
+      const deviceId = nanoid(TINYSYNQ_NANOID_SIZE);
       const target = randomEntry.entry_id;
-      const fixed = {'entry_journal_id': randomJournal?.journal_id }
-      const changes = generateChangesForTable({
+      const fixed = {'entry_journal_id': randomEntry.entry_journal_id }
+      const constraints = new Map(Object.entries({
+        'entry_journal_id':'journal'
+      }));
+
+      await wait({ms: 10});
+      const generatedChanges = generateChangesForTable({
         sq, 
         table: 'entry',
         origin: deviceId,
@@ -339,23 +346,19 @@ describe('Sync', () => {
         target,
         operations: [SYNQ_UPDATE],
       });
+      // @HACK: row_id ends up empty because the record was deleted
+      const updatedEntry = {...randomEntry, entry_content: 'Updated content'};
+      generatedChanges[0].data = JSON.stringify(updatedEntry);
+      generatedChanges[0].row_id = target;
 
-      changes[0].vclock[sq.deviceId!] = 0;
-      changes[0].modified = getRandomDateTime() as string;
+      sq.applyChangesToLocalDB({changes: generatedChanges});
 
-      sq.applyChangesToLocalDB({ changes });
-
-      const updatedRecord = sq.getById(metaParams);
-      const updatedMeta = sq.getRecordMeta(metaParams);
-      const lastSyncAfter = sq.getLastSync();
-      const incoming = JSON.parse(changes[0].data);
-      console.log({entryMeta, updatedMeta});
+      const resurrected = sq.getById({table_name: 'entry', row_id: target});
       
       removeDb({filePath: sq.dbPath});
-      expect(updatedRecord).toMatchObject(randomEntry);
-      // expect(updatedMeta).not.toEqual(entryMeta);
-      expect(lastSyncBefore).not.toEqual(lastSyncAfter);
+      expect(resurrected).toBeTruthy();
+      expect(resurrected.entry_id).toEqual(randomEntry.entry_id);
+      expect(resurrected.entry_content).toEqual(updatedEntry.entry_content);
     });
-    */
   });
 });

@@ -121,6 +121,7 @@ class VCompare {
 }
 
 const SYNQ_INSERT = 'INSERT';
+const SYNQ_UPDATE = 'UPDATE';
 const TINYSYNQ_SAFE_ISO8601_REGEX = /^\d{4}(-\d{2}){2}\s(\d{2}:){2}\d{2}(\.\d{1,3})?$/;
 
 var _env$TINYSYNQ_LOG_LEV;
@@ -705,6 +706,28 @@ class TinySynq {
     return res;
   }
   /**
+   * Returns the most recent change for a specific record.
+   *
+   * @param params
+   * @returns A single change record, if one exists
+   */
+  getMostRecentChange(params) {
+    const conditions = ['table_name = :table_name', 'row_id = :row_id'];
+    if (params.operation) {
+      conditions.push('operation = :operation');
+    }
+    const sql = `
+    SELECT * FROM ${this._synqPrefix}_changes
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY modified DESC
+    LIMIT 1`;
+    const res = this.runQuery({
+      sql,
+      values: params
+    });
+    return res[0];
+  }
+  /**
    * Creates new pending record to be applied later.
    *
    * @param opts - Options for processing out-of-order change
@@ -807,10 +830,15 @@ class TinySynq {
     let stale = false;
     // If we don't have the record, treat it as new
     if (!restore && !record && change.operation !== SYNQ_INSERT) {
-      reason = 'update before insert';
-      this.processOutOfOrderChange({
-        change
-      });
+      // But skip potential update-after-delete, which is handled later
+      if (!!meta && change.operation === SYNQ_UPDATE) {
+        this.log.warn('SKIPPED: non-existent record with existing meta', meta);
+      } else {
+        reason = 'update before insert';
+        this.processOutOfOrderChange({
+          change
+        });
+      }
     } else if (restore || !record || !local || !local[localId]) {
       latest = change.vclock;
     }
@@ -819,6 +847,8 @@ class TinySynq {
       reason = 'restoration';
       latest = localV.merge();
       return {
+        record,
+        meta,
         valid,
         reason,
         vclock: latest,
@@ -858,6 +888,8 @@ class TinySynq {
       stale
     });
     return {
+      record,
+      meta,
       valid,
       reason,
       vclock: latest,
@@ -866,6 +898,59 @@ class TinySynq {
         displaced,
         conflicted
       }
+    };
+  }
+  /**
+   * Checks for incoming update on deleted record and attempts to resurrect it.
+   *
+   * @param params
+   * @returns Object with `valid` property
+   */
+  processUpdateAfterDelete(params) {
+    const {
+      restore,
+      record,
+      change,
+      meta
+    } = params;
+    const {
+      table_name,
+      row_id
+    } = change;
+    let valid = true;
+    if (!restore && !record && !!meta && change.operation === SYNQ_UPDATE) {
+      // If meta exists but the record doesn't, most likely it's
+      // because the record was deleted. If possible, restore it.
+      const lastChange = this.getMostRecentChange({
+        table_name,
+        row_id,
+        operation: TinySynqOperation.DELETE
+      });
+      if (lastChange) {
+        let recordData = {};
+        try {
+          recordData = JSON.parse(lastChange.data);
+        } catch (err) {
+          valid = false;
+          this.log.error(err);
+        }
+        if (recordData) {
+          // Restore the record
+          const insertSql = this.createInsertFromObject({
+            data: recordData,
+            table_name: change.table_name
+          });
+          this.run({
+            sql: insertSql,
+            values: recordData
+          });
+        }
+      } else {
+        valid = false;
+      }
+    }
+    return {
+      valid
     };
   }
   /**
@@ -1001,7 +1086,23 @@ class TinySynq {
         change,
         restore
       });
+      this.log.warn({
+        changeStatus
+      });
       if (!changeStatus.valid) {
+        console.log(changeStatus);
+        this.updateLastSync({
+          change
+        });
+        return;
+      }
+      // Check for update-after-delete. It's done here so that stale changes are skipped.
+      const uadStatus = this.processUpdateAfterDelete({
+        ...changeStatus,
+        change,
+        restore
+      });
+      if (!uadStatus.valid) {
         this.log.warn(changeStatus);
         this.updateLastSync({
           change
@@ -1293,6 +1394,7 @@ const initTinySynq = config => {
       SELECT 'json_object(' || GROUP_CONCAT('''' || name || ''', NEW.' || name, ',') || ')' AS jo
       FROM pragma_table_info('${table.name}');`
     })[0];
+    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD');
     log.silly('@jsonObject', JSON.stringify(jsonObject, null, 2));
     /**
      * These triggers run for changes originating locally. They are disabled
@@ -1350,13 +1452,21 @@ const initTinySynq = config => {
     ts.run({
       sql: updateTriggerSql
     });
+    /*
+    Stores current record as JSON in `data` column as is done for INSERTs.
+    This will act as a "tombstone" record in case of update-after-delete.
+         Restoration will involve checking for a DELETE change for the table/row_id
+    and reinserting it if it exists, then applying the incoming update. Finally,
+    a record is added to `*_notice` informing of the resurrection.
+    */
     const deleteTriggerSql = `
       CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_after_delete_${table.name}
       AFTER DELETE ON ${table.name}
       FOR EACH ROW
       WHEN (SELECT meta_value FROM ${ts.synqPrefix}_meta WHERE meta_name = 'triggers_on')='1'
       BEGIN
-        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation) VALUES ('${table.name}', OLD.${table.id}, 'DELETE');
+        INSERT INTO ${ts.synqPrefix}_changes (table_name, row_id, operation, data)
+        VALUES ('${table.name}', OLD.${table.id}, 'DELETE', ${oldJsonObject});
         
         ${getRecordMetaInsertQuery({
       table,
@@ -1419,7 +1529,6 @@ const initTinySynq = config => {
         INSERT INTO ${ts.synqPrefix}_dump (table_name, operation, data) VALUES ('${table.name}', 'UPDATE', ${jsonObject.jo});
       END;`
     });
-    const oldJsonObject = jsonObject.jo.replace(/NEW/g, 'OLD');
     ts.run({
       sql: `
       CREATE TRIGGER IF NOT EXISTS ${ts.synqPrefix}_dump_after_delete_${table.name}

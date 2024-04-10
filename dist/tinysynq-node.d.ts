@@ -399,6 +399,17 @@ export declare class TinySynq {
      */
     getPending(): any;
     /**
+     * Returns the most recent change for a specific record.
+     *
+     * @param params
+     * @returns A single change record, if one exists
+     */
+    getMostRecentChange(params: {
+        table_name: string;
+        row_id: string;
+        operation?: TinySynqOperation;
+    }): any;
+    /**
      * Creates new pending record to be applied later.
      *
      * @param opts - Options for processing out-of-order change
@@ -418,6 +429,13 @@ export declare class TinySynq {
      * @returns Result of pre-processing.
      */
     private preProcessChange;
+    /**
+     * Checks for incoming update on deleted record and attempts to resurrect it.
+     *
+     * @param params
+     * @returns Object with `valid` property
+     */
+    private processUpdateAfterDelete;
     /**
      * Creates an insert query based on the syncable table name and data provided.
      *

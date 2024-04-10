@@ -89,6 +89,11 @@ export class TinySynq {
     // Warning: (ae-forgotten-export) The symbol "LatestChangesOptions" needs to be exported by the entry point index.d.ts
     getFilteredChanges(opts?: LatestChangesOptions): any;
     getLastSync(): string;
+    getMostRecentChange(params: {
+        table_name: string;
+        row_id: string;
+        operation?: TinySynqOperation;
+    }): any;
     getNewId(): string;
     getPending(): any;
     getRecordMeta(params: {
