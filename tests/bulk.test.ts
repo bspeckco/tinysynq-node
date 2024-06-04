@@ -8,7 +8,7 @@ import { getConfiguredDb, getRandomColumnUpdate, removeDb, wait } from './utils.
 const ID_SIZE = 16; // 1000 years to reach 1% probability of collision at 1000 IDs per second
 const logLevel = LogLevel.Warn;
 
-describe.only('Bulk', () => {
+describe('Bulk', () => {
 
   describe('Multiple changes', () => {
     test('Multiple inserts, updates and deletes', async () => {
