@@ -2,9 +2,8 @@ import { describe, expect, test } from "vitest";
 import { alterRecordMeta, generateChangesForTable, getConfiguredDb, getNanoId, getRandomDateTime, getRecordOrRandom, removeDb, wait } from "./utils.js";
 import { TinySynq } from "../src/lib/tinysynq.class.js";
 import { testCreateTableEntry, testCreateTableJournal, testEntryData, testInsertRowEntry, testInsertRowJournal, testJournalData } from "./test-data/journal.data.js";
-import { TINYSYNQ_NANOID_SIZE, SYNQ_UPDATE } from "../src/lib/constants.js";
+import { TINYSYNQ_NANOID_SIZE, SYNQ_UPDATE, LogLevel } from "@bspeckco/tinysynq-lib";
 import { nanoid } from "nanoid";
-import { LogLevel } from "../src/lib/types.js";
 import { Logger } from "tslog";
 
 const log = new Logger({name: 'SYNC_TEST', type: 'pretty', minLevel: LogLevel.Debug})

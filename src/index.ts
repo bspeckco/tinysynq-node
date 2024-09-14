@@ -4,15 +4,17 @@ import { startTinySynqServer } from './lib/server.js';
 export default { startTinySynqServer, initTinySynq: lib };
 
 export type { 
-  SyncableTable,
-  TinySynqOptions,
-  TinySynqOptionsBase,
-  Change,
-  QueryParams,
   BetterSqlite3Instance,
 } from './lib/types.js';
 
 export type {
-  TinySynq,
+  SyncableTable,
+  TinySynqOptions,
   GetTableIdColumnParams,
+  Change,
+  QueryParams,
+} from '@bspeckco/tinysynq-lib';
+
+export type {
+  TinySynq,
 } from './lib/tinysynq.class.js';

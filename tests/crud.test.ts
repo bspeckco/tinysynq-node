@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { getConfiguredDb, removeDb, wait } from './utils.js';
-import { TinySynqOperation } from '../src/lib/types.js';
+import { TinySynqOperation } from '@bspeckco/tinysynq-lib';
 import { testCreateTableEntry, testCreateTableJournal } from './test-data/journal.data.js';
 
 describe('CRUD', () => {

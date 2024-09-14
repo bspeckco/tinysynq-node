@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, test } from "vitest";
 import { TinySynq } from "../src/lib/tinysynq.class.js";
-import { TINYSYNQ_SAFE_ISO8601_REGEX } from "../src/lib/constants.js";
+import { TINYSYNQ_SAFE_ISO8601_REGEX } from "@bspeckco/tinysynq-lib";
 import { getConfiguredDb, removeDb } from "./utils.js";
 
 const filePath = '/tmp/tst000.db';

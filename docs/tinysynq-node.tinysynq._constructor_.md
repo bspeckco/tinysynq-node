@@ -16,5 +16,5 @@ constructor(opts: TinySynqOptions);
 
 |  Parameter | Type | Description |
 |  --- | --- | --- |
-|  opts | [TinySynqOptions](./tinysynq-node.tinysynqoptions.md) | Configuration options |
+|  opts | TinySynqOptions | Configuration options |
 

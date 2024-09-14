@@ -1,10 +1,9 @@
 import initTinySynq from '../src/lib/index.js';
-import { Change, LogLevel, SyncableTable, TinySynqOperation, VClock } from '../src/lib/types.js';
+import { Change, LogLevel, SyncableTable, TinySynqOperation, VClock, TINYSYNQ_NANOID_SIZE } from '@bspeckco/tinysynq-lib';
 import fs from 'fs';
 import { TinySynq } from '../src/lib/tinysynq.class.js';
 import { ILogObj, ISettingsParam } from 'tslog';
 import { nanoid } from 'nanoid';
-import { TINYSYNQ_NANOID_SIZE } from '../src/lib/constants.js';
 import { testCreateTableItems, testInsertRowItem } from './test-data/items.data.js';
 
 const logLevel = LogLevel.Warn;

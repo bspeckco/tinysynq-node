@@ -1,5 +1,5 @@
 import { TinySynq } from "./tinysynq.class.js";
-import { TinySynqOptions } from "./types.js";
+import { TinySynqOptions } from "@bspeckco/tinysynq-lib";
 /**
  * Returns a configured instance of TinySynq
  *

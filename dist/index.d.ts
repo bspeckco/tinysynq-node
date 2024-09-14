@@ -1,8 +1,9 @@
 declare const _default: {
     startTinySynqServer: (params: import("./lib/server.js").TSServerParams) => import("uWebSockets.js").TemplatedApp;
-    initTinySynq: (config: import("./lib/types.js").TinySynqOptions) => import("./lib/tinysynq.class.js").TinySynq;
+    initTinySynq: (config: import("@bspeckco/tinysynq-lib").TinySynqOptions) => import("./lib/tinysynq.class.js").TinySynq;
 };
 export default _default;
-export type { SyncableTable, TinySynqOptions, TinySynqOptionsBase, Change, QueryParams, BetterSqlite3Instance, } from './lib/types.js';
-export type { TinySynq, GetTableIdColumnParams, } from './lib/tinysynq.class.js';
+export type { BetterSqlite3Instance, } from './lib/types.js';
+export type { SyncableTable, TinySynqOptions, GetTableIdColumnParams, Change, QueryParams, } from '@bspeckco/tinysynq-lib';
+export type { TinySynq, } from './lib/tinysynq.class.js';
 //# sourceMappingURL=index.d.ts.map

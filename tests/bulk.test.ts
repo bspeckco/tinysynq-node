@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { LogLevel } from '../src/lib/types.js';
+import { LogLevel } from '@bspeckco/tinysynq-lib';
 import { nanoid } from 'nanoid';
 import fs from 'fs';
 import { Logger } from 'tslog';

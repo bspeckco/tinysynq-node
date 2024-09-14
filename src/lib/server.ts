@@ -2,18 +2,29 @@ import { env } from './env.js';
 import * as uWS from 'uWebSockets.js';
 import { threadId } from 'worker_threads';
 import { TinySynq } from './tinysynq.class.js';
-import { LogLevel, SyncRequestType, SyncResponseType } from './types.js';
+import { Change, LogLevel, SyncRequestType, SyncResponseType } from '@bspeckco/tinysynq-lib';
 import { ILogObj, ISettingsParam, Logger } from 'tslog';
 
 interface TSTemplatedApp extends uWS.TemplatedApp {
-  ts: TinySynq,
-  log: Logger<ILogObj>
+  ts: TinySynq;
+  log: Logger<ILogObj>;
 }
+
+export type SocketRequestType = 'push' | 'pull'
 
 export interface TSServerParams {
   ts: TinySynq,
   port?: number;
   logOptions: ISettingsParam<ILogObj>
+}
+
+export interface TSSocketRequestParams {
+  changes?: Change[];
+  requestId?: string;
+  source?: string;
+  type: SocketRequestType;
+  since: string;            // datetime of last change
+  checkpoint: number;       // ID of last change
 }
 
 let server;
@@ -23,8 +34,6 @@ function arrayBufferToString(arrBuff: ArrayBuffer): string {
 } 
 
 const app = uWS.App() as TSTemplatedApp;
-
-// @TODO: request IDs
 
 app.ws('/*', {
   compression: uWS.SHARED_COMPRESSOR,
@@ -39,8 +48,9 @@ app.ws('/*', {
   message: (ws, message, isBinary) => {
     const addr = arrayBufferToString(ws.getRemoteAddressAsText());
     const messageString = arrayBufferToString(message);
-    const parsed = JSON.parse(messageString);
+    const parsed = JSON.parse(messageString) as TSSocketRequestParams;
     const { requestId } = parsed;
+    app.log.trace('@parsed', parsed);
     app.log.debug('@Message!', parsed.changes, app.ts.deviceId);
     try {
       switch(parsed.type) {
@@ -49,25 +59,27 @@ app.ws('/*', {
             app.log.error('INVALID_SOURCE', {parsed});
             throw new Error('Invalid source');
           }  
-          const incoming = parsed.changes.map((c: any) => {
-            c.source = parsed.source
+          const incoming = parsed.changes?.map((c: any) => {
+            c.source = parsed.source;
             delete c.mod;
             //c.vclock = JSON.parse(c.vclock);
-            return c;
-          });
-          console.debug('\n<<<< INCOMING >>>>\n', incoming);
+            return c as Change;
+          }) || [];
+          app.log.debug('\n<<<< INCOMING >>>>\n', incoming);
           app.ts.applyChangesToLocalDB({changes: incoming});
           ws.send(JSON.stringify({type: SyncResponseType.ack, requestId}));
           ws.publish('broadcast', JSON.stringify({changes: incoming}), false);
           break;
         case SyncRequestType.pull:
           // @TODO: Eh? Didn't I work this out already?
-          const changes = app.ts.getFilteredChanges();
+          const params = { ...parsed } as any;
+          delete params?.type;
+          const changes = app.ts.getFilteredChanges(parsed);
           app.log.debug('@pull: outgoing:', changes);
           ws.send(JSON.stringify({type: SyncResponseType.ack, requestId, changes}));
           break;
         default:
-          throw new Error('Invalid request type:', parsed.type);
+          throw new Error(`Invalid request type: '${parsed.type}'`);
       }
       
     }

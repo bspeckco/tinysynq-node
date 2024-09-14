@@ -10,26 +10,9 @@
 |  --- | --- |
 |  [TinySynq](./tinysynq-node.tinysynq.md) | The main class for managing SQLite3 synchronisation. |
 
-## Interfaces
-
-|  Interface | Description |
-|  --- | --- |
-|  [Change](./tinysynq-node.change.md) | Object transferred between devices to convey individual record changes. |
-|  [SyncableTable](./tinysynq-node.syncabletable.md) | Provided to TinySynq constructor. |
-|  [TinySynqOptionsBase](./tinysynq-node.tinysynqoptionsbase.md) | Base options for TinySynq constructor. |
-
 ## Variables
 
 |  Variable | Description |
 |  --- | --- |
 |  [\_default](./tinysynq-node._default.md) |  |
-
-## Type Aliases
-
-|  Type Alias | Description |
-|  --- | --- |
-|  [BetterSqlite3Instance](./tinysynq-node.bettersqlite3instance.md) | A [BetterSqlite3](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/api.md) instance. |
-|  [GetTableIdColumnParams](./tinysynq-node.gettableidcolumnparams.md) | Parameters for retrieving table's ID column. |
-|  [QueryParams](./tinysynq-node.queryparams.md) | Basic query params for methods that read from/write to DB. |
-|  [TinySynqOptions](./tinysynq-node.tinysynqoptions.md) | Base options for TinySynq constructor. |
 
