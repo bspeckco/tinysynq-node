@@ -144,7 +144,6 @@ app.ws('/*', {
           const incoming = ((_parsed$changes = parsed.changes) == null ? void 0 : _parsed$changes.map(c => {
             c.source = parsed.source;
             delete c.mod;
-            //c.vclock = JSON.parse(c.vclock);
             return c;
           })) || [];
           app.log.debug('\n<<<< INCOMING >>>>\n', incoming);

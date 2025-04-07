@@ -4,145 +4,40 @@
 
 ```ts
 
-import BetterSqlite3 from 'better-sqlite3';
-import { ILogObj } from 'tslog';
-import { ISettingsParam } from 'tslog';
+import { BetterSqlite3Instance } from './lib/types.js';
+import { Change } from '@bspeckco/tinysynq-lib';
+import { GetTableIdColumnParams } from '@bspeckco/tinysynq-lib';
+import { QueryParams } from '@bspeckco/tinysynq-lib';
+import { SyncableTable } from '@bspeckco/tinysynq-lib';
 import { TemplatedApp } from 'uWebSockets.js';
 import { TinySynq as TinySynq_2 } from './lib/tinysynq.class.js';
-import { TinySynqOptions as TinySynqOptions_2 } from './lib/types.js';
+import { TinySynqOptions } from '@bspeckco/tinysynq-lib';
+import { TinySynqSync } from '@bspeckco/tinysynq-lib';
 import { TSServerParams } from './lib/server.js';
 
-// @public
-export type BetterSqlite3Instance = BetterSqlite3.Database;
+export { BetterSqlite3Instance }
 
-// @public
-export interface Change {
-    data: string;
-    id?: number;
-    modified: string;
-    // Warning: (ae-forgotten-export) The symbol "TinySynqOperation" needs to be exported by the entry point index.d.ts
-    operation: keyof typeof TinySynqOperation;
-    row_id: string;
-    source: string;
-    table_name: string;
-    // Warning: (ae-forgotten-export) The symbol "VClock" needs to be exported by the entry point index.d.ts
-    vclock: VClock;
-}
+export { Change }
 
 // @public (undocumented)
 const _default: {
     startTinySynqServer: (params: TSServerParams) => TemplatedApp;
-    initTinySynq: (config: TinySynqOptions_2) => TinySynq_2;
+    initTinySynq: (config: TinySynqOptions) => TinySynq_2;
 };
 export default _default;
 
-// @public
-export type GetTableIdColumnParams = {
-    table_name: string;
-};
+export { GetTableIdColumnParams }
+
+export { QueryParams }
+
+export { SyncableTable }
 
 // @public
-export type QueryParams = {
-    sql: string;
-    values?: any;
-};
-
-// @public
-export interface SyncableTable {
-    editable: string[];
-    id: string;
-    name: string;
-}
-
-// @public
-export class TinySynq {
+export class TinySynq extends TinySynqSync {
     constructor(opts: TinySynqOptions);
-    // (undocumented)
-    applyChangesToLocalDB({ changes, restore }: {
-        changes: Change[];
-        restore?: boolean;
-    }): void;
-    clearDebugData(): void;
-    createInsertFromObject({ data, table_name: table }: {
-        data: Record<string, any>;
-        table_name: string;
-    }): string;
-    createUpdateFromObject({ data, table_name: table }: {
-        data: Record<string, any>;
-        table_name: string;
-    }): string;
-    get db(): any;
-    get dbPath(): string;
-    get deviceId(): string | undefined;
-    disableDebug(): unknown;
-    enableDebug(): unknown;
-    // Warning: (ae-forgotten-export) The symbol "TableNameRowParams" needs to be exported by the entry point index.d.ts
-    getById<T>(params: TableNameRowParams): T | any;
-    getChanges(params?: {
-        lastLocalSync?: string;
-        columns?: string[];
-    }): Change[];
-    getChangesSinceLastSync(params?: {
-        columns?: string[];
-    }): Change[];
-    getDeviceId(): string;
-    // Warning: (ae-forgotten-export) The symbol "LatestChangesOptions" needs to be exported by the entry point index.d.ts
-    getFilteredChanges(opts?: LatestChangesOptions): any;
-    getLastSync(): string;
-    getMostRecentChange(params: {
-        table_name: string;
-        row_id: string;
-        operation?: TinySynqOperation;
-    }): any;
-    getNewId(): string;
-    getPending(): any;
-    getRecordMeta(params: {
-        table_name: string;
-        row_id: string;
-    }): any;
-    getTableIdColumn(params: GetTableIdColumnParams): string;
-    // (undocumented)
-    insertRecordMeta({ change, vclock }: {
-        change: Change;
-        vclock: VClock;
-    }): any;
-    run<T>(params: QueryParams): T;
-    runMany(params: {
-        sql: string;
-        values: any[];
-    }): any;
-    runQuery<T = any>(params: QueryParams): T;
-    setDeviceId(): void;
-    get synqBatchSize(): number;
-    get synqDbId(): string | undefined;
-    get synqPrefix(): string | undefined;
-    get synqTables(): Record<string, SyncableTable> | undefined;
-    // (undocumented)
-    tablesReady(): void;
-    // Warning: (ae-forgotten-export) The symbol "Utils" needs to be exported by the entry point index.d.ts
-    readonly utils: Utils;
-    get wal(): boolean;
 }
 
-// Warning: (ae-forgotten-export) The symbol "TinySynqOptionsWithInstance" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "TinySynqOptionsWithFilePath" needs to be exported by the entry point index.d.ts
-//
-// @public
-export type TinySynqOptions = TinySynqOptionsWithInstance | TinySynqOptionsWithFilePath;
-
-// @public
-export interface TinySynqOptionsBase {
-    batchSize?: number;
-    debug?: boolean;
-    filePath?: string;
-    logOptions?: ISettingsParam<ILogObj>;
-    postInit?: string[];
-    prefix: string;
-    preInit?: string[];
-    sqlite3?: BetterSqlite3Instance;
-    tables: SyncableTable[];
-    wal?: boolean;
-}
+export { TinySynqOptions }
 
 // (No @packageDocumentation comment for this package)
 

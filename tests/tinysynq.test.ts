@@ -78,7 +78,7 @@ describe('TinySynq', () => {
       `INSERT INTO items (item_id,item_name)
       VALUES (:item_id,:item_name)
       ON CONFLICT DO UPDATE SET item_id = :item_id,item_name = :item_name
-      RETURNING *;`.replace(/\s+/g, ' ');
+      RETURNING *`.replace(/\s+/g, ' ');
       expect(sql.replace(/\s+/g, ' ')).toEqual(expected);
     });
 

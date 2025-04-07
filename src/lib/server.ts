@@ -62,7 +62,6 @@ app.ws('/*', {
           const incoming = parsed.changes?.map((c: any) => {
             c.source = parsed.source;
             delete c.mod;
-            //c.vclock = JSON.parse(c.vclock);
             return c as Change;
           }) || [];
           app.log.debug('\n<<<< INCOMING >>>>\n', incoming);
