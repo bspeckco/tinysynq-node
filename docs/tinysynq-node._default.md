@@ -8,7 +8,7 @@
 
 ```typescript
 _default: {
-    startTinySynqServer: (params: import("./lib/server.js").TSServerParams) => import("uWebSockets.js").TemplatedApp;
+    startTinySynqServer: (params: import("./lib/server.js").TSServerParams) => import("./lib/server.js").TinySynqServerControl;
     initTinySynq: (config: import("@bspeckco/tinysynq-lib").TinySynqOptions) => import("./lib/tinysynq.class.js").TinySynq;
 }
 ```

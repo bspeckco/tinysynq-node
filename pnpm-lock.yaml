@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@bspeckco/tinysynq-lib':
         specifier: ^1.1.0
-        version: 1.1.0(typescript@5.3.3)
+        version: 1.1.0(typescript@4.9.5)
       better-sqlite3:
         specifier: ^9.4.0
         version: 9.4.0
@@ -28,14 +28,14 @@ importers:
         version: 4.9.2
       typescript:
         specifier: ^5.0.0
-        version: 5.3.3
+        version: 4.9.5
       uWebSockets.js:
         specifier: github:uNetworking/uWebSockets.js#v20.43.0
         version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/1977b5039938ad863d42fc4958d48c17e5a1fa06
     devDependencies:
       '@commitlint/cli':
         specifier: ^18.6.1
-        version: 18.6.1(@types/node@20.11.16)(typescript@5.3.3)
+        version: 18.6.1(@types/node@20.11.16)(typescript@4.9.5)
       '@commitlint/config-conventional':
         specifier: ^18.6.2
         version: 18.6.2
@@ -69,6 +69,9 @@ importers:
       vitest:
         specifier: ^1.2.2
         version: 1.2.2(@types/node@20.11.16)(terser@5.27.0)
+      ws:
+        specifier: ^8.18.1
+        version: 8.18.1
 
 packages:
 
@@ -3508,6 +3511,18 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  ws@8.18.1:
+    resolution: {integrity: sha512-RKW2aJZMXeMxVpnZ6bck+RswznaxmzdULiBr6KY7XkTnW8uvt0iT9H5DkHUChXrc+uurzwa0rVI16n/Xzjdz1w==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -4328,19 +4343,19 @@ snapshots:
       '@babel/helper-validator-identifier': 7.22.20
       to-fast-properties: 2.0.0
 
-  '@bspeckco/tinysynq-lib@1.1.0(typescript@5.3.3)':
+  '@bspeckco/tinysynq-lib@1.1.0(typescript@4.9.5)':
     dependencies:
       date-fns: 3.3.1
       dotenv: 16.4.5
       nanoid: 5.0.5
       tslog: 4.9.2
-      typescript: 5.3.3
+      typescript: 4.9.5
 
-  '@commitlint/cli@18.6.1(@types/node@20.11.16)(typescript@5.3.3)':
+  '@commitlint/cli@18.6.1(@types/node@20.11.16)(typescript@4.9.5)':
     dependencies:
       '@commitlint/format': 18.6.1
       '@commitlint/lint': 18.6.1
-      '@commitlint/load': 18.6.1(@types/node@20.11.16)(typescript@5.3.3)
+      '@commitlint/load': 18.6.1(@types/node@20.11.16)(typescript@4.9.5)
       '@commitlint/read': 18.6.1
       '@commitlint/types': 18.6.1
       execa: 5.1.1
@@ -4390,15 +4405,15 @@ snapshots:
       '@commitlint/rules': 18.6.1
       '@commitlint/types': 18.6.1
 
-  '@commitlint/load@18.6.1(@types/node@20.11.16)(typescript@5.3.3)':
+  '@commitlint/load@18.6.1(@types/node@20.11.16)(typescript@4.9.5)':
     dependencies:
       '@commitlint/config-validator': 18.6.1
       '@commitlint/execute-rule': 18.6.1
       '@commitlint/resolve-extends': 18.6.1
       '@commitlint/types': 18.6.1
       chalk: 4.1.2
-      cosmiconfig: 8.3.6(typescript@5.3.3)
-      cosmiconfig-typescript-loader: 5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@5.3.3))(typescript@5.3.3)
+      cosmiconfig: 8.3.6(typescript@4.9.5)
+      cosmiconfig-typescript-loader: 5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@4.9.5))(typescript@4.9.5)
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       lodash.uniq: 4.5.0
@@ -5217,12 +5232,12 @@ snapshots:
 
   core-util-is@1.0.3: {}
 
-  cosmiconfig-typescript-loader@5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@5.3.3))(typescript@5.3.3):
+  cosmiconfig-typescript-loader@5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@4.9.5))(typescript@4.9.5):
     dependencies:
       '@types/node': 20.11.16
-      cosmiconfig: 8.3.6(typescript@5.3.3)
+      cosmiconfig: 8.3.6(typescript@4.9.5)
       jiti: 1.21.0
-      typescript: 5.3.3
+      typescript: 4.9.5
 
   cosmiconfig@7.1.0:
     dependencies:
@@ -5232,14 +5247,14 @@ snapshots:
       path-type: 4.0.0
       yaml: 1.10.2
 
-  cosmiconfig@8.3.6(typescript@5.3.3):
+  cosmiconfig@8.3.6(typescript@4.9.5):
     dependencies:
       import-fresh: 3.3.0
       js-yaml: 4.1.0
       parse-json: 5.2.0
       path-type: 4.0.0
     optionalDependencies:
-      typescript: 5.3.3
+      typescript: 4.9.5
 
   cross-spawn@7.0.3:
     dependencies:
@@ -7306,6 +7321,8 @@ snapshots:
       strip-ansi: 6.0.1
 
   wrappy@1.0.2: {}
+
+  ws@8.18.1: {}
 
   xtend@4.0.2: {}
 

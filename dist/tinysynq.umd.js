@@ -127,7 +127,6 @@
 
   const env = process.env;
 
-  let server;
   function arrayBufferToString(arrBuff) {
     return Buffer.from(arrBuff).toString();
   }
@@ -135,12 +134,55 @@
   app.ws('/*', {
     compression: uWS__namespace.SHARED_COMPRESSOR,
     maxPayloadLength: 16 * 1024 * 1024,
-    // 16MB
     idleTimeout: 120,
     sendPingsAutomatically: true,
+    upgrade: async (res, req, context) => {
+      const secWebSocketKey = req.getHeader('sec-websocket-key');
+      const secWebSocketProtocol = req.getHeader('sec-websocket-protocol');
+      const secWebSocketExtensions = req.getHeader('sec-websocket-extensions');
+      const remoteAddress = arrayBufferToString(res.getRemoteAddressAsText());
+      let userData = {
+        remoteAddress
+      }; // Include remote address in userData by default
+      try {
+        if (app.auth) {
+          app.log.debug(`Performing auth for ${remoteAddress}`);
+          const authResult = await app.auth(req);
+          if (authResult === true) {
+            // Auth successful (simple boolean success)
+            app.log.debug(`Auth successful (true) for ${remoteAddress}`);
+          } else if (typeof authResult === 'object' && authResult !== null) {
+            // Auth successful (with user data)
+            userData = {
+              ...userData,
+              ...authResult
+            }; // Merge auth result object into userData
+            app.log.debug(`Auth successful (object) for ${remoteAddress}`, userData);
+          } else {
+            // Auth failed (includes false, undefined, null, numbers, strings, etc.)
+            app.log.warn(`Auth failed (result was ${JSON.stringify(authResult)}) for ${remoteAddress}`);
+            res.writeStatus('401 Unauthorized').end();
+            return;
+          }
+        } else {
+          app.log.trace(`No auth function configured, allowing connection for ${remoteAddress}`);
+        }
+        // Upgrade the connection, passing userData
+        res.upgrade({
+          userData
+        },
+        // Pass the userData object
+        secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, context);
+      } catch (err) {
+        app.log.error(`Auth error for ${remoteAddress}: ${err.message}`);
+        // Ensure response is ended in case of error during auth
+        // Use writeStatus before end for proper HTTP response
+        res.writeStatus('500 Internal Server Error').end();
+      }
+    },
     open: ws => {
-      const addr = arrayBufferToString(ws.getRemoteAddressAsText());
-      app.log.warn('@Connected!', addr);
+      const userData = ws.getUserData(); // Retrieve userData passed from upgrade
+      app.log.warn('@Connected!', userData); // Log userData on connect
       ws.subscribe('broadcast');
     },
     message: (ws, message, isBinary) => {
@@ -210,22 +252,37 @@
     }
   });
   const startTinySynqServer = params => {
+    let listenSocket = null;
     const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
     app.ts = params.ts;
+    app.auth = params.auth;
     app.log = new tslog.Logger({
       name: 'tinysynq-node-ws',
       minLevel: params.logOptions.minLevel || Number(env.TINYSYNQ_LOG_LEVEL) || tinysynqLib.LogLevel.Info,
       type: env.TINYSYNQ_LOG_FORMAT || 'json',
       ...(params.logOptions || {})
     });
-    server = app.listen(port, token => {
-      if (token) {
+    app.listen(port, socket => {
+      listenSocket = socket; // Store the socket
+      if (listenSocket) {
         app.log.info(`TinySynq server listening on port ${port} from thread ${worker_threads.threadId}`);
       } else {
         app.log.error(`Failed to listen on port ${port} from thread ${worker_threads.threadId}`);
       }
     });
-    return server;
+    // Return the app instance and a close function
+    return {
+      app,
+      close: () => {
+        if (listenSocket) {
+          app.log.info(`Closing server socket on port ${port}`);
+          uWS__namespace.us_listen_socket_close(listenSocket);
+          listenSocket = null; // Prevent double closing
+        } else {
+          app.log.warn(`Attempted to close server, but socket was not listening or already closed.`);
+        }
+      }
+    };
   };
 
   var index = {
