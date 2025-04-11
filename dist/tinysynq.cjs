@@ -143,6 +143,10 @@ app.ws('/*', {
     const secWebSocketProtocol = req.getHeader('sec-websocket-protocol');
     const secWebSocketExtensions = req.getHeader('sec-websocket-extensions');
     const remoteAddress = arrayBufferToString(res.getRemoteAddressAsText());
+    res.onAborted(() => {
+      app.log.warn(`Connection aborted for ${remoteAddress}`);
+      res.aborted = true;
+    });
     let userData = {
       remoteAddress
     }; // Base user data
@@ -170,7 +174,11 @@ app.ws('/*', {
       }
       // If we reach here, authentication passed or was not required.
       app.log.debug(`Upgrading connection for ${remoteAddress}, userData:`, userData);
-      res.upgrade(userData, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, context);
+      if (!res.aborted) {
+        res.upgrade(userData, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, context);
+      } else {
+        app.log.warn(`Upgrade aborted for ${remoteAddress} during auth.`);
+      }
     } catch (err) {
       // Error during auth function execution
       app.log.error(`Auth error during upgrade for ${remoteAddress}: ${err.message}`);

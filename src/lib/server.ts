@@ -5,7 +5,6 @@ import { TinySynq } from './tinysynq.class.js';
 import { Change, LogLevel, SyncRequestType, SyncResponseType } from '@bspeckco/tinysynq-lib';
 import { ILogObj, ISettingsParam, Logger } from 'tslog';
 
-// --- Core Types ---
 
 interface TSTemplatedApp extends uWS.TemplatedApp {
   ts: TinySynq;
@@ -59,6 +58,11 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
     const secWebSocketExtensions = req.getHeader('sec-websocket-extensions');
     const remoteAddress = arrayBufferToString(res.getRemoteAddressAsText());
 
+    res.onAborted(() => {
+      app.log.warn(`Connection aborted for ${remoteAddress}`);
+      res.aborted = true;
+    });
+
     let userData: WebSocketUserData = { remoteAddress }; // Base user data
     
     try {
@@ -87,13 +91,17 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
 
       // If we reach here, authentication passed or was not required.
       app.log.debug(`Upgrading connection for ${remoteAddress}, userData:`, userData);
-      res.upgrade(
-        userData,
-        secWebSocketKey,
-        secWebSocketProtocol,
-        secWebSocketExtensions,
-        context
-      );
+      if (!res.aborted) {
+        res.upgrade(
+          userData,
+          secWebSocketKey,
+          secWebSocketProtocol,
+          secWebSocketExtensions,
+          context
+        );
+      } else {
+         app.log.warn(`Upgrade aborted for ${remoteAddress} during auth.`);
+      }
 
     } catch (err: any) {
       // Error during auth function execution
