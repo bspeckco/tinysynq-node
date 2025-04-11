@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { getConfiguredDb, removeDb } from './utils.js';
 import { WebSocket } from 'ws';
-import { startTinySynqServer, TinySynqServerControl } from '../src/lib/server.js';
+import { startTinySynqServer, TinySynqServerControl, TSServerParams } from '../src/lib/server.js';
 import { type HttpRequest } from 'uWebSockets.js';
 
 const TEST_PORT = 7175;
@@ -167,7 +167,7 @@ describe('Server', () => {
     ).rejects.toThrow('Received 500 Internal Server Error');
   });
 
-  // --- Bearer Token Tests ---
+  // --- Bearer Token (Auth) Tests ---
 
   const bearerAuth = (validToken: string) => async (req: HttpRequest) => {
     const authHeader = req.getHeader('authorization');
@@ -184,7 +184,7 @@ describe('Server', () => {
     return false;
   };
 
-  test('should allow connection with valid Bearer token', async () => {
+  test('should allow connection with valid Bearer token via auth', async () => {
     cleanup();
     const validToken = 'test-token-123';
     ts = getConfiguredDb({ useDefault: true });
@@ -203,7 +203,7 @@ describe('Server', () => {
     ).resolves.toBeUndefined();
   });
 
-  test('should deny connection with invalid Bearer token', async () => {
+  test('should deny connection with invalid Bearer token via auth', async () => {
     cleanup();
     const validToken = 'test-token-123';
     const invalidToken = 'wrong-token';
@@ -239,6 +239,81 @@ describe('Server', () => {
     await expect(
       new Promise<void>((resolve, reject) => {
         const ws = new WebSocket(`ws://localhost:${TEST_PORT}`); // No headers
+        ws.on('open', () => { ws.close(); resolve(); });
+        ws.on('error', (err) => {
+          ws.close();
+          if (err.message.includes('401')) {
+            reject(new Error('Received 401 Unauthorized'));
+          } else {
+            reject(err);
+          }
+        });
+      })
+    ).rejects.toThrow('Received 401 Unauthorized');
+  });
+
+  // --- Query Parameter Auth Tests ---
+
+  const queryParamAuth = (validToken: string) => async (req: HttpRequest): Promise<boolean | { queryUser: string }> => {
+    const token = req.getQuery('token');
+    console.log(`Query Param Auth: Received token = '${token}'`);
+    if (token === validToken) {
+      console.log('Query Param Auth: Success');
+      return { queryUser: 'authorized_via_query' };
+    }
+    console.warn('Query Param Auth: Failure');
+    return false;
+  };
+
+  test('should allow connection with valid token in query parameter', async () => {
+    cleanup();
+    const validToken = 'query-token-789';
+    ts = getConfiguredDb({ useDefault: true });
+    // Use the specific auth function for this test
+    serverControl = startTinySynqServer({ ts, auth: queryParamAuth(validToken), logOptions: { minLevel: 5 }, port: TEST_PORT });
+
+    await expect(
+      new Promise<void>((resolve, reject) => {
+        // Construct URL with query parameter
+        const ws = new WebSocket(`ws://localhost:${TEST_PORT}/?token=${validToken}`);
+        ws.on('open', () => { ws.close(); resolve(); });
+        ws.on('error', (err) => { ws.close(); reject(err); });
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  test('should deny connection with invalid token in query parameter', async () => {
+    cleanup();
+    const validToken = 'query-token-789';
+    const invalidToken = 'wrong-query-token';
+    ts = getConfiguredDb({ useDefault: true });
+    serverControl = startTinySynqServer({ ts, auth: queryParamAuth(validToken), logOptions: { minLevel: 5 }, port: TEST_PORT });
+
+    await expect(
+      new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`ws://localhost:${TEST_PORT}/?token=${invalidToken}`);
+        ws.on('open', () => { ws.close(); resolve(); }); // Should not open
+        ws.on('error', (err) => {
+          ws.close();
+          if (err.message.includes('401')) {
+            reject(new Error('Received 401 Unauthorized'));
+          } else {
+            reject(err);
+          }
+        });
+      })
+    ).rejects.toThrow('Received 401 Unauthorized');
+  });
+
+  test('should deny connection without token query parameter when auth requires it', async () => {
+    cleanup();
+    const validToken = 'query-token-789';
+    ts = getConfiguredDb({ useDefault: true });
+    serverControl = startTinySynqServer({ ts, auth: queryParamAuth(validToken), logOptions: { minLevel: 5 }, port: TEST_PORT });
+
+    await expect(
+      new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`ws://localhost:${TEST_PORT}/`); // No query parameter
         ws.on('open', () => { ws.close(); resolve(); });
         ws.on('error', (err) => {
           ws.close();

@@ -109,7 +109,7 @@ const env = process.env;
 function arrayBufferToString(arrBuff) {
   return Buffer.from(arrBuff).toString();
 }
-const app = uWS.App();
+const app = uWS.App({});
 app.ws('/*', {
   compression: uWS.SHARED_COMPRESSOR,
   maxPayloadLength: 16 * 1024 * 1024,
@@ -122,74 +122,95 @@ app.ws('/*', {
     const remoteAddress = arrayBufferToString(res.getRemoteAddressAsText());
     let userData = {
       remoteAddress
-    }; // Include remote address in userData by default
+    }; // Base user data
     try {
       if (app.auth) {
+        // Perform authentication using the provided auth function
         app.log.debug(`Performing auth for ${remoteAddress}`);
         const authResult = await app.auth(req);
         if (authResult === true) {
-          // Auth successful (simple boolean success)
           app.log.debug(`Auth successful (true) for ${remoteAddress}`);
+          // Proceed to upgrade, userData only contains remoteAddress unless modified by auth fn later
         } else if (typeof authResult === 'object' && authResult !== null) {
-          // Auth successful (with user data)
-          userData = {
-            ...userData,
-            ...authResult
-          }; // Merge auth result object into userData
-          app.log.debug(`Auth successful (object) for ${remoteAddress}`, userData);
+          app.log.debug(`Auth successful (object) for ${remoteAddress}`, authResult);
+          // Merge returned user data
+          Object.assign(userData, authResult);
         } else {
-          // Auth failed (includes false, undefined, null, numbers, strings, etc.)
-          app.log.warn(`Auth failed (result was ${JSON.stringify(authResult)}) for ${remoteAddress}`);
+          // Auth failed (false, null, undefined, etc.)
+          app.log.warn(`Auth failed for ${remoteAddress} (result: ${JSON.stringify(authResult)}), denying connection.`);
           res.writeStatus('401 Unauthorized').end();
-          return;
+          return; // Stop processing
         }
       } else {
-        app.log.trace(`No auth function configured, allowing connection for ${remoteAddress}`);
+        // No auth function configured, allow connection
+        app.log.trace(`No auth configured, allowing connection for ${remoteAddress}`);
       }
-      // Upgrade the connection, passing userData
-      res.upgrade({
-        userData
-      },
-      // Pass the userData object
-      secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, context);
+      // If we reach here, authentication passed or was not required.
+      app.log.debug(`Upgrading connection for ${remoteAddress}, userData:`, userData);
+      res.upgrade(userData, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, context);
     } catch (err) {
-      app.log.error(`Auth error for ${remoteAddress}: ${err.message}`);
-      // Ensure response is ended in case of error during auth
-      // Use writeStatus before end for proper HTTP response
+      // Error during auth function execution
+      app.log.error(`Auth error during upgrade for ${remoteAddress}: ${err.message}`);
       res.writeStatus('500 Internal Server Error').end();
     }
   },
   open: ws => {
-    const userData = ws.getUserData(); // Retrieve userData passed from upgrade
-    app.log.warn('@Connected!', userData); // Log userData on connect
+    const userData = ws.getUserData();
+    app.log.warn('@Connected!', userData);
     ws.subscribe('broadcast');
   },
-  message: (ws, message, isBinary) => {
-    var _parsed$changes;
-    const addr = arrayBufferToString(ws.getRemoteAddressAsText());
-    const messageString = arrayBufferToString(message);
-    const parsed = JSON.parse(messageString);
-    const {
-      requestId
-    } = parsed;
-    app.log.trace('@parsed', parsed);
-    app.log.debug('@Message!', parsed.changes, app.ts.deviceId);
+  message: async (ws, message, isBinary) => {
+    var _syncRequestParams$ch;
+    const userData = ws.getUserData();
+    const remoteAddress = userData.remoteAddress;
+    let parsed;
     try {
-      switch (parsed.type) {
+      // Ensure message is parsed safely
+      try {
+        const messageString = arrayBufferToString(message);
+        parsed = JSON.parse(messageString);
+      } catch (parseError) {
+        app.log.warn(`Failed to parse message from ${remoteAddress}: ${parseError.message}`);
+        ws.close(); // Close connection on parse error
+        return;
+      }
+      app.log.trace(`Raw message from ${remoteAddress}:`, parsed);
+      // --- Handle Authenticated Connections (All connections are considered authenticated here) ---
+      // Ensure the message type is a valid SyncRequestType before proceeding
+      if (typeof parsed.type !== 'string' || !Object.values(SyncRequestType).includes(parsed.type)) {
+        var _parsed, _parsed2;
+        app.log.warn('INVALID_MESSAGE_TYPE received', {
+          parsed,
+          remoteAddress
+        });
+        ws.send(JSON.stringify({
+          type: SyncResponseType.nack,
+          requestId: (_parsed = parsed) == null ? void 0 : _parsed.requestId,
+          message: `Invalid message type: ${(_parsed2 = parsed) == null ? void 0 : _parsed2.type}`
+        }));
+        return;
+      }
+      const syncRequestParams = parsed;
+      const {
+        requestId
+      } = syncRequestParams;
+      app.log.debug(`@Message (${remoteAddress})!`, syncRequestParams.changes, app.ts.deviceId);
+      switch (syncRequestParams.type) {
         case SyncRequestType.push:
-          if (!parsed.source) {
+          if (!syncRequestParams.source) {
             app.log.error('INVALID_SOURCE', {
-              parsed
+              parsed: syncRequestParams,
+              remoteAddress
             });
             throw new Error('Invalid source');
           }
-          const incoming = ((_parsed$changes = parsed.changes) == null ? void 0 : _parsed$changes.map(c => {
-            c.source = parsed.source;
+          const incoming = ((_syncRequestParams$ch = syncRequestParams.changes) == null ? void 0 : _syncRequestParams$ch.map(c => {
+            c.source = syncRequestParams.source;
             delete c.mod;
             return c;
           })) || [];
           app.log.debug('\n<<<< INCOMING >>>>\n', incoming);
-          app.ts.applyChangesToLocalDB({
+          await app.ts.applyChangesToLocalDB({
             changes: incoming
           });
           ws.send(JSON.stringify({
@@ -201,12 +222,11 @@ app.ws('/*', {
           }), false);
           break;
         case SyncRequestType.pull:
-          // @TODO: Eh? Didn't I work this out already?
           const params = {
-            ...parsed
+            ...syncRequestParams
           };
           params == null || delete params.type;
-          const changes = app.ts.getFilteredChanges(parsed);
+          const changes = await app.ts.getFilteredChanges(syncRequestParams);
           app.log.debug('@pull: outgoing:', changes);
           ws.send(JSON.stringify({
             type: SyncResponseType.ack,
@@ -215,18 +235,25 @@ app.ws('/*', {
           }));
           break;
         default:
-          throw new Error(`Invalid request type: '${parsed.type}'`);
+          throw new Error(`Invalid request type on connection: '${syncRequestParams.type}'`);
       }
     } catch (err) {
-      app.log.error(err, {
-        addr,
-        for: JSON.stringify(parsed)
+      // General error handling for message processing
+      app.log.error(`Top-level message handler error for ${remoteAddress}: ${err.message}`, {
+        error: err,
+        parsed
       });
-      ws.send(JSON.stringify({
-        type: SyncResponseType.nack,
-        requestId: parsed.requestId,
-        message: err.message
-      }));
+      try {
+        var _parsed3;
+        ws.send(JSON.stringify({
+          type: SyncResponseType.nack,
+          requestId: (_parsed3 = parsed) == null ? void 0 : _parsed3.requestId,
+          message: `Server error processing message: ${err.message}`
+        }));
+      } catch (sendError) {
+        app.log.warn(`Failed to send error NACK to ${remoteAddress}, connection likely closed: ${sendError.message}`);
+      }
+      ws.close();
     }
   }
 });
@@ -234,7 +261,8 @@ const startTinySynqServer = params => {
   let listenSocket = null;
   const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
   app.ts = params.ts;
-  app.auth = params.auth;
+  app.auth = params.auth; // Assign the (renamed) auth function
+  // app.validateAuthData = params.validateAuthData; // Removed
   app.log = new Logger({
     name: 'tinysynq-node-ws',
     minLevel: params.logOptions.minLevel || Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
@@ -242,21 +270,20 @@ const startTinySynqServer = params => {
     ...(params.logOptions || {})
   });
   app.listen(port, socket => {
-    listenSocket = socket; // Store the socket
+    listenSocket = socket;
     if (listenSocket) {
       app.log.info(`TinySynq server listening on port ${port} from thread ${threadId}`);
     } else {
       app.log.error(`Failed to listen on port ${port} from thread ${threadId}`);
     }
   });
-  // Return the app instance and a close function
   return {
     app,
     close: () => {
       if (listenSocket) {
         app.log.info(`Closing server socket on port ${port}`);
         uWS.us_listen_socket_close(listenSocket);
-        listenSocket = null; // Prevent double closing
+        listenSocket = null;
       } else {
         app.log.warn(`Attempted to close server, but socket was not listening or already closed.`);
       }

@@ -1,13 +1,13 @@
 import * as uWS from 'uWebSockets.js';
 import { TinySynq } from './tinysynq.class.js';
-import { Change } from '@bspeckco/tinysynq-lib';
+import { Change, SyncRequestType } from '@bspeckco/tinysynq-lib';
 import { ILogObj, ISettingsParam, Logger } from 'tslog';
 interface TSTemplatedApp extends uWS.TemplatedApp {
     ts: TinySynq;
     log: Logger<ILogObj>;
     auth?: (req: uWS.HttpRequest) => Promise<boolean | Record<string, any>>;
 }
-export type SocketRequestType = 'push' | 'pull';
+export type SocketRequestType = SyncRequestType;
 export interface TSServerParams {
     ts: TinySynq;
     port?: number;
@@ -18,7 +18,7 @@ export interface TSSocketRequestParams {
     changes?: Change[];
     requestId?: string;
     source?: string;
-    type: SocketRequestType;
+    type: SyncRequestType;
     since: string;
     checkpoint: number;
 }
