@@ -163,7 +163,9 @@
           } else {
             // Auth failed (false, null, undefined, etc.)
             app.log.warn(`Auth failed for ${remoteAddress} (result: ${JSON.stringify(authResult)}), denying connection.`);
-            res.writeStatus('401 Unauthorized').end();
+            res.cork(() => {
+              res.writeStatus('401 Unauthorized').end();
+            });
             return; // Stop processing
           }
         } else {
@@ -180,7 +182,11 @@
       } catch (err) {
         // Error during auth function execution
         app.log.error(`Auth error during upgrade for ${remoteAddress}: ${err.message}`);
-        res.writeStatus('500 Internal Server Error').end();
+        if (!res.aborted) {
+          res.cork(() => {
+            res.writeStatus('500 Internal Server Error').end();
+          });
+        }
       }
     },
     open: ws => {
