@@ -73,23 +73,23 @@ describe('TinySynq', () => {
         filePath,
       }});
       const data = {item_id: 'item001', item_name: 'test001'};
-      const sql = ts.createInsertFromObject({data, table_name: 'items'}).trim();
+      const { sql } = ts.createInsertFromObject({data, table_name: 'items'});
       const expected = 
       `INSERT INTO items (item_id,item_name)
-      VALUES (:item_id,:item_name)
-      ON CONFLICT DO UPDATE SET item_id = :item_id,item_name = :item_name
+      VALUES (?,?)
+      ON CONFLICT DO UPDATE SET item_id = ?, item_name = ?
       RETURNING *`.replace(/\s+/g, ' ');
-      expect(sql.replace(/\s+/g, ' ')).toEqual(expected);
+      expect(sql.trim().replace(/\s+/g, ' ')).toEqual(expected);
     });
 
     test('should create UPDATE SQL', () => {
       const ts = getConfiguredDb({useDefault: true, config: {
         filePath,
       }});
-      const data = {item_name: 'test001'};
-      const sql = ts.createUpdateFromObject({data, table_name: 'items'}).trim();
-      const expected = `UPDATE items SET item_name = :item_name WHERE item_id = :item_id RETURNING *;`;
-      expect(sql.replace(/\s+/g, ' ')).toEqual(expected);
+      const data = {item_id: 'item001', item_name: 'test001'};
+      const { sql } = ts.createUpdateFromObject({data, table_name: 'items'});
+      const expected = `UPDATE items SET item_name = ? WHERE item_id = ? RETURNING *;`;
+      expect(sql?.trim().replace(/\s+/g, ' ')).toEqual(expected);
     });
   });
 });

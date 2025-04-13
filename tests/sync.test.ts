@@ -50,8 +50,8 @@ describe('Sync', () => {
       expect(originalMeta.vclock).toMatchObject(JSON.stringify({[deviceId]: 1}));
 
       entry.entry_title = `Updated at ${Date.now()}`;
-      const insertSql = sq.createInsertFromObject({data: entry, table_name: 'entry'});
-      sq.runQuery({sql: insertSql, values: entry});
+      const { sql, values } = sq.createInsertFromObject({data: entry, table_name: 'entry'});
+      sq.runQuery({ sql, values });
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
       removeDb({ filePath: sq.dbPath });
@@ -74,7 +74,6 @@ describe('Sync', () => {
       const originalMeta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
       expect(originalMeta.vclock).toMatchObject(JSON.stringify({[localId]: 1}));
      
-      console.log({changes})
       sq.applyChangesToLocalDB({ changes });
       
       // Change might not be immediately visible, wait a moment.
@@ -87,7 +86,6 @@ describe('Sync', () => {
 
     test('should increment a local ID in vclock', () => {
       const sq = getNew();
-      console.log('@DB_FILE:', sq.dbPath);
       const localId = sq.deviceId as string;
       const remoteId = getNanoId();
       const changes = generateChangesForTable({
@@ -100,11 +98,12 @@ describe('Sync', () => {
 
       const entry = sq.getById<any>({table_name: 'entry', row_id: changes[0].row_id});
       entry.entry_title = `Updated to ${performance.now()}`;
-      const sql = sq.createInsertFromObject({
+      const { sql, values } = sq.createInsertFromObject({
         data: entry,
         table_name: 'entry'
       });
-      const updatedEntry = sq.runQuery({sql, values: entry});
+      
+      sq.runQuery({sql, values});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
       removeDb({ filePath: sq.dbPath });
@@ -128,11 +127,12 @@ describe('Sync', () => {
       
       const entry = sq.getById<any>({table_name: 'entry', row_id: changes[0].row_id});
       entry.entry_title = `Updated to ${performance.now()}`;
-      const sql = sq.createInsertFromObject({
+      const { sql, values } = sq.createInsertFromObject({
         data: entry,
         table_name: 'entry'
       });
-      sq.runQuery({sql, values: entry});
+
+      sq.runQuery({sql, values});
       const meta = sq.getRecordMeta({table_name: 'entry', row_id: entry.entry_id});
 
       removeDb({ filePath: sq.dbPath });

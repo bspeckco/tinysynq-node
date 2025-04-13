@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@bspeckco/tinysynq-lib':
-        specifier: ^1.1.0
-        version: 1.1.0(typescript@4.9.5)
+        specifier: ^1.2.1
+        version: 1.2.1(typescript@4.9.5)
       better-sqlite3:
         specifier: ^9.4.0
         version: 9.4.0
@@ -709,8 +709,8 @@ packages:
     resolution: {integrity: sha512-dQjSq/7HaSjRM43FFGnv5keM2HsxpmyV1PfaSVm0nzzjwwTmjOe6J4bC8e3+pTEIgHaHj+1ZlLThRJ2auc/w1Q==}
     engines: {node: '>=6.9.0'}
 
-  '@bspeckco/tinysynq-lib@1.1.0':
-    resolution: {integrity: sha512-fCaJtTBr1om/BNRm4MzqSBdoRnPEZRBpYmo/MwZChNwjzaUpzkwiCqnldjzO1IaflTuuUVjlUIy+eGP+TcrJ5g==}
+  '@bspeckco/tinysynq-lib@1.2.1':
+    resolution: {integrity: sha512-tRESyqerYY0azoKOHcwvzNZG8bWtfoVlfUxfgtugFCxbeKlvZeWxP6s/7RxBVoWU/rDW6fS7XVg4pCny7FbwSg==}
     peerDependencies:
       typescript: ^5.0.0
 
@@ -4343,7 +4343,7 @@ snapshots:
       '@babel/helper-validator-identifier': 7.22.20
       to-fast-properties: 2.0.0
 
-  '@bspeckco/tinysynq-lib@1.1.0(typescript@4.9.5)':
+  '@bspeckco/tinysynq-lib@1.2.1(typescript@4.9.5)':
     dependencies:
       date-fns: 3.3.1
       dotenv: 16.4.5
