@@ -1,10 +1,12 @@
 import { afterAll, describe, expect, test } from "vitest";
 import { TinySynq } from "../src/lib/tinysynq.class.js";
-import { TINYSYNQ_SAFE_ISO8601_REGEX } from "@bspeckco/tinysynq-lib";
-import { getConfiguredDb, removeDb } from "./utils.js";
+import { Change, TINYSYNQ_SAFE_ISO8601_REGEX, TinySynqOperation } from "@bspeckco/tinysynq-lib";
+import { getConfiguredDb, getRandomdbPath, removeDb } from "./utils.js";
+import { type RunResult } from "better-sqlite3";
 
-const filePath = '/tmp/tst000.db';
 describe('TinySynq', () => {
+  let filePath = getRandomdbPath();
+
   afterAll(() => {
     removeDb({filePath});
   });
@@ -90,6 +92,50 @@ describe('TinySynq', () => {
       const { sql } = ts.createUpdateFromObject({data, table_name: 'items'});
       const expected = `UPDATE items SET item_name = ? WHERE item_id = ? RETURNING *;`;
       expect(sql?.trim().replace(/\s+/g, ' ')).toEqual(expected);
+    });
+  });
+
+  describe('Database Interaction', () => {
+    test('should perform basic CRUD operations', () => {
+      const ts = getConfiguredDb({useDefault: true, config: {
+        filePath,
+      }});
+      const initialData = { item_id: 'crud001', name: 'CRUD Initial' };
+      const insertCmd = ts.createInsertFromObject({data: initialData, table_name: 'items'});
+      const insertResult: RunResult = ts.run(insertCmd);
+      
+      // Create/Insert
+      expect(insertResult.changes).toBe(1);
+      const createdItem = ts.getById({table_name: 'items', row_id: initialData.item_id});
+      expect(createdItem).toEqual(initialData);
+      const meta = ts.getRecordMeta({table_name: 'items', row_id: initialData.item_id});
+      expect(meta).toBeDefined();
+      expect(meta.row_id).toBe(initialData.item_id);
+      expect(meta.table_name).toBe('items');
+
+      // Update
+      const updatedData = { ...initialData, name: 'CRUD Updated' };
+      const updateCmd = ts.createUpdateFromObject({data: updatedData, table_name: 'items'});
+      // Ensure SQL was generated (requires primary key)
+      expect(updateCmd.sql, 'Update SQL should be generated').toBeTypeOf('string'); 
+      const updateResult: RunResult = ts.run({sql: updateCmd.sql!, values: updateCmd.values}); // Use non-null assertion
+      expect(updateResult.changes).toBe(1);
+      const updatedItem = ts.getById({table_name: 'items', row_id: initialData.item_id});
+      expect(updatedItem).toEqual(updatedData);
+
+      // Delete
+      const deleteResult: RunResult = ts.run({sql: 'DELETE FROM items WHERE item_id = ?', values: [initialData.item_id]});
+      expect(deleteResult.changes).toBe(1);
+      const deletedItem = ts.getById({table_name: 'items', row_id: initialData.item_id});
+      expect(deletedItem).toBeUndefined();
+
+      // Verify meta still exists after delete (soft delete via trigger)
+      const metaAfterDelete = ts.getRecordMeta({table_name: 'items', row_id: initialData.item_id});
+      expect(metaAfterDelete).toBeDefined();
+      
+      // Check if the delete trigger correctly updated the meta operation
+      const deleteChange = ts.getFilteredChanges().find((c: Change) => c.row_id === initialData.item_id && c.operation === TinySynqOperation.DELETE);
+      expect(deleteChange).toBeDefined();
     });
   });
 });

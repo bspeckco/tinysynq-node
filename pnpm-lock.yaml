@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@bspeckco/tinysynq-lib':
-        specifier: ^1.2.2
-        version: 1.2.2(typescript@4.9.5)
+        specifier: ^1.2.8
+        version: 1.2.8(typescript@5.3.3)
       better-sqlite3:
         specifier: ^9.4.0
         version: 9.4.0
@@ -28,14 +28,14 @@ importers:
         version: 4.9.2
       typescript:
         specifier: ^5.0.0
-        version: 4.9.5
+        version: 5.3.3
       uWebSockets.js:
         specifier: github:uNetworking/uWebSockets.js#v20.43.0
         version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/1977b5039938ad863d42fc4958d48c17e5a1fa06
     devDependencies:
       '@commitlint/cli':
         specifier: ^18.6.1
-        version: 18.6.1(@types/node@20.11.16)(typescript@4.9.5)
+        version: 18.6.1(@types/node@20.11.16)(typescript@5.3.3)
       '@commitlint/config-conventional':
         specifier: ^18.6.2
         version: 18.6.2
@@ -709,8 +709,8 @@ packages:
     resolution: {integrity: sha512-dQjSq/7HaSjRM43FFGnv5keM2HsxpmyV1PfaSVm0nzzjwwTmjOe6J4bC8e3+pTEIgHaHj+1ZlLThRJ2auc/w1Q==}
     engines: {node: '>=6.9.0'}
 
-  '@bspeckco/tinysynq-lib@1.2.2':
-    resolution: {integrity: sha512-zBmapY5us2bI9U7b4thCXs+zhIdDHaiOf2CrYK4oGUrDCAsVC3lq3eNFxyRvWtKlqol1LXjCtAsQIyEs3IfErA==}
+  '@bspeckco/tinysynq-lib@1.2.8':
+    resolution: {integrity: sha512-PDB1jGK06TgfFESiD0Wv2hfnMucVm0PJJj/qf/Lc7H6XvvN8REyRKz//tMJfnBYiHaIvD4z8HmORfFCxg8Ogkw==}
     peerDependencies:
       typescript: ^5.0.0
 
@@ -1586,6 +1586,9 @@ packages:
   date-fns@3.3.1:
     resolution: {integrity: sha512-y8e109LYGgoQDveiEBD3DYXKba1jWf5BA8YU1FL5Tvm0BTdEfy54WLCwnuYWZNnzzvALy/QQ4Hov+Q9RVRv+Zw==}
 
+  date-fns@3.6.0:
+    resolution: {integrity: sha512-fRHTG8g/Gif+kSh50gaGEdToemgfj74aRX3swtiouboip5JDLAyDE9F11nHMIcvOaXeOC6D7SpNhi7uFyB7Uww==}
+
   dateformat@3.0.3:
     resolution: {integrity: sha512-jyCETtSl3VMZMWeRo7iY1FL19ges1t55hMo5yaam4Jrsm5EPL89UQkoQRyiI+Yf4k8r2ZpdngkV8hr1lIdjb3Q==}
 
@@ -2422,6 +2425,11 @@ packages:
 
   nanoid@5.0.5:
     resolution: {integrity: sha512-/Veqm+QKsyMY3kqi4faWplnY1u+VuKO3dD2binyPIybP31DRO29bPF+1mszgLnrR2KqSLceFLBNw0zmvDzN1QQ==}
+    engines: {node: ^18 || >=20}
+    hasBin: true
+
+  nanoid@5.1.5:
+    resolution: {integrity: sha512-Ir/+ZpE9fDsNH0hQ3C68uyThDXzYcim2EqcZ8zn8Chtt1iylPT9xXJB0kPCnqzgcEGikO9RxSrh63MsmVCU7Fw==}
     engines: {node: ^18 || >=20}
     hasBin: true
 
@@ -3313,6 +3321,10 @@ packages:
 
   tslog@4.9.2:
     resolution: {integrity: sha512-wBM+LRJoNl34Bdu8mYEFxpvmOUedpNUwMNQB/NcuPIZKwdDde6xLHUev3bBjXQU7gdurX++X/YE7gLH8eXYsiQ==}
+    engines: {node: '>=16'}
+
+  tslog@4.9.3:
+    resolution: {integrity: sha512-oDWuGVONxhVEBtschLf2cs/Jy8i7h1T+CpdkTNWQgdAF7DhRo2G8vMCgILKe7ojdEkLhICWgI1LYSSKaJsRgcw==}
     engines: {node: '>=16'}
 
   tunnel-agent@0.6.0:
@@ -4343,19 +4355,19 @@ snapshots:
       '@babel/helper-validator-identifier': 7.22.20
       to-fast-properties: 2.0.0
 
-  '@bspeckco/tinysynq-lib@1.2.2(typescript@4.9.5)':
+  '@bspeckco/tinysynq-lib@1.2.8(typescript@5.3.3)':
     dependencies:
-      date-fns: 3.3.1
+      date-fns: 3.6.0
       dotenv: 16.4.5
-      nanoid: 5.0.5
-      tslog: 4.9.2
-      typescript: 4.9.5
+      nanoid: 5.1.5
+      tslog: 4.9.3
+      typescript: 5.3.3
 
-  '@commitlint/cli@18.6.1(@types/node@20.11.16)(typescript@4.9.5)':
+  '@commitlint/cli@18.6.1(@types/node@20.11.16)(typescript@5.3.3)':
     dependencies:
       '@commitlint/format': 18.6.1
       '@commitlint/lint': 18.6.1
-      '@commitlint/load': 18.6.1(@types/node@20.11.16)(typescript@4.9.5)
+      '@commitlint/load': 18.6.1(@types/node@20.11.16)(typescript@5.3.3)
       '@commitlint/read': 18.6.1
       '@commitlint/types': 18.6.1
       execa: 5.1.1
@@ -4405,15 +4417,15 @@ snapshots:
       '@commitlint/rules': 18.6.1
       '@commitlint/types': 18.6.1
 
-  '@commitlint/load@18.6.1(@types/node@20.11.16)(typescript@4.9.5)':
+  '@commitlint/load@18.6.1(@types/node@20.11.16)(typescript@5.3.3)':
     dependencies:
       '@commitlint/config-validator': 18.6.1
       '@commitlint/execute-rule': 18.6.1
       '@commitlint/resolve-extends': 18.6.1
       '@commitlint/types': 18.6.1
       chalk: 4.1.2
-      cosmiconfig: 8.3.6(typescript@4.9.5)
-      cosmiconfig-typescript-loader: 5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@4.9.5))(typescript@4.9.5)
+      cosmiconfig: 8.3.6(typescript@5.3.3)
+      cosmiconfig-typescript-loader: 5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@5.3.3))(typescript@5.3.3)
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       lodash.uniq: 4.5.0
@@ -5232,12 +5244,12 @@ snapshots:
 
   core-util-is@1.0.3: {}
 
-  cosmiconfig-typescript-loader@5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@4.9.5))(typescript@4.9.5):
+  cosmiconfig-typescript-loader@5.0.0(@types/node@20.11.16)(cosmiconfig@8.3.6(typescript@5.3.3))(typescript@5.3.3):
     dependencies:
       '@types/node': 20.11.16
-      cosmiconfig: 8.3.6(typescript@4.9.5)
+      cosmiconfig: 8.3.6(typescript@5.3.3)
       jiti: 1.21.0
-      typescript: 4.9.5
+      typescript: 5.3.3
 
   cosmiconfig@7.1.0:
     dependencies:
@@ -5247,14 +5259,14 @@ snapshots:
       path-type: 4.0.0
       yaml: 1.10.2
 
-  cosmiconfig@8.3.6(typescript@4.9.5):
+  cosmiconfig@8.3.6(typescript@5.3.3):
     dependencies:
       import-fresh: 3.3.0
       js-yaml: 4.1.0
       parse-json: 5.2.0
       path-type: 4.0.0
     optionalDependencies:
-      typescript: 4.9.5
+      typescript: 5.3.3
 
   cross-spawn@7.0.3:
     dependencies:
@@ -5334,6 +5346,8 @@ snapshots:
   dargs@7.0.0: {}
 
   date-fns@3.3.1: {}
+
+  date-fns@3.6.0: {}
 
   dateformat@3.0.3: {}
 
@@ -6202,6 +6216,8 @@ snapshots:
   nanoid@3.3.7: {}
 
   nanoid@5.0.5: {}
+
+  nanoid@5.1.5: {}
 
   napi-build-utils@1.0.2: {}
 
@@ -7128,6 +7144,8 @@ snapshots:
   tslib@2.6.2: {}
 
   tslog@4.9.2: {}
+
+  tslog@4.9.3: {}
 
   tunnel-agent@0.6.0:
     dependencies:
