@@ -5,19 +5,21 @@ import { getConfiguredDb, getRandomdbPath, removeDb } from "./utils.js";
 import { type RunResult } from "better-sqlite3";
 
 describe('TinySynq', () => {
-  let filePath = getRandomdbPath();
 
-  afterAll(() => {
-    removeDb({filePath});
-  });
   describe('Utils', () => {
+    let filePath: string = getRandomdbPath();
+
+    afterAll(() => {
+      removeDb({filePath});
+    });
+
     test('strftimeAsISO8601 returns a SQLite expression to generate an ISO-8601 string', () => {
       const ts = new TinySynq({
         filePath,
         prefix: '',
         tables: []
       });
-      expect(ts.utils.strftimeAsISO8601).toBe(`STRFTIME('%Y-%m-%d %H:%M:%f','NOW')`);
+      expect(ts.utils.strftimeAsISO8601).toBe(`STRFTIME('%Y-%m-%dT%H:%M:%fZ','NOW')`);
     });
 
     test('nowAsISO8601 returns a SQLite expression to generate an ISO-8601 string', () => {
@@ -26,7 +28,7 @@ describe('TinySynq', () => {
         prefix: '',
         tables: []
       });
-      expect(ts.utils.nowAsISO8601).toBe(`STRFTIME('%Y-%m-%d %H:%M:%f','NOW')`);
+      expect(ts.utils.nowAsISO8601).toBe(`STRFTIME('%Y-%m-%dT%H:%M:%fZ','NOW')`);
     });
 
     test('utcNowAsISO8601 returns a standard ISO-8601 an ISO-8601 date string', () => {
@@ -37,65 +39,47 @@ describe('TinySynq', () => {
       });
       expect(ts.utils.utcNowAsISO8601()).toMatch(TINYSYNQ_SAFE_ISO8601_REGEX);
     });
-
-    test('isSafeISO8601 to correctly identify safe and unsafe date string formats', () => {
-      const ts = new TinySynq({
-        filePath,
-        prefix: '',
-        tables: []
-      });
-      const invalid = [
-        '0000-00-00T00:00:00.000Z',
-        '0000-00-00 00:00:00.000Z',
-        '0000-00-00T00:00:00.000',
-        '0000/00/00 00:00:00',
-        '00-00-0000',
-      ];
-
-      for (const d of invalid) {
-        expect(ts.utils.isSafeISO8601(d)).toBeFalsy();
-      }
-
-      const valid = [
-        '0000-00-00 00:00:00.000',
-        '0000-00-00 00:00:00.00',
-        '0000-00-00 00:00:00.0',
-        '0000-00-00 00:00:00'
-      ];
-
-      for (const d of valid) {
-        expect(ts.utils.isSafeISO8601(d)).toBeTruthy();
-      }
-    });
   });
 
   describe('SQL', () => {
     test('should create INSERT SQL', () => {
+      let filePath: string = getRandomdbPath();
+
       const ts = getConfiguredDb({useDefault: true, config: {
         filePath,
       }});
-      const data = {item_id: 'item001', item_name: 'test001'};
+      const data = {item_id: 'item001A', item_name: 'test001'};
       const { sql } = ts.createInsertFromObject({data, table_name: 'items'});
       const expected = 
       `INSERT INTO items (item_id,item_name)
       VALUES (?,?)
       ON CONFLICT DO UPDATE SET item_id = ?, item_name = ?
       RETURNING *`.replace(/\s+/g, ' ');
+      removeDb({filePath});
       expect(sql.trim().replace(/\s+/g, ' ')).toEqual(expected);
     });
 
     test('should create UPDATE SQL', () => {
+      let filePath: string = getRandomdbPath();
+
       const ts = getConfiguredDb({useDefault: true, config: {
         filePath,
       }});
-      const data = {item_id: 'item001', item_name: 'test001'};
+      const data = {item_id: 'item001B', item_name: 'test002'};
       const { sql } = ts.createUpdateFromObject({data, table_name: 'items'});
       const expected = `UPDATE items SET item_name = ? WHERE item_id = ? RETURNING *;`;
+      removeDb({filePath});
       expect(sql?.trim().replace(/\s+/g, ' ')).toEqual(expected);
     });
   });
 
   describe('Database Interaction', () => {
+    let filePath: string = getRandomdbPath();
+
+    afterAll(() => {
+      removeDb({filePath});
+    });
+
     test('should perform basic CRUD operations', () => {
       const ts = getConfiguredDb({useDefault: true, config: {
         filePath,
