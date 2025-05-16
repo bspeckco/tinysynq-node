@@ -114,6 +114,10 @@ const initTinySynq = config => {
       ts
     });
   }
+  tinysynqLib.applyMigrationsSync({
+    db: ts,
+    logger: log
+  });
   ts.tablesReady();
   if (postInit != null && postInit.length) {
     for (const postInitQuery of postInit) {

@@ -4,6 +4,8 @@ import {
   createInternalTablesSync,
   setupTriggersForTableSync,
   TinySynqOptions,
+  applyMigrationsSync,
+  MIGRATIONS
 } from "@bspeckco/tinysynq-lib";
 
 /**
@@ -66,7 +68,9 @@ const initTinySynq = (config: TinySynqOptions) => {
 
     setupTriggersForTableSync({ table, ts });
   }
-  
+
+  applyMigrationsSync({ db: ts, logger: log });
+
   ts.tablesReady();
 
   if (postInit?.length) {
