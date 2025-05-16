@@ -50,5 +50,5 @@
     "tslog": "^4.9.2",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.43.0"
   },
-  "version": "0.0.2"
+  "version": "0.1.0"
 }
