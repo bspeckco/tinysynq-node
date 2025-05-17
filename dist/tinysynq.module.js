@@ -155,7 +155,9 @@ app.ws('/*', {
       // If we reach here, authentication passed or was not required.
       app.log.debug(`Upgrading connection for ${remoteAddress}, userData:`, userData);
       if (!res.aborted) {
-        res.upgrade(userData, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, context);
+        res.cork(() => {
+          res.upgrade(userData, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, context);
+        });
       } else {
         app.log.warn(`Upgrade aborted for ${remoteAddress} during auth.`);
       }
@@ -225,15 +227,28 @@ app.ws('/*', {
             return c;
           })) || [];
           app.log.debug('\n<<<< INCOMING >>>>\n', incoming);
-          await app.ts.applyChangesToLocalDB({
-            changes: incoming
-          });
+          try {
+            app.ts.applyChangesToLocalDB({
+              changes: incoming
+            });
+          } catch (err) {
+            app.log.error('Error applying changes to local DB', {
+              error: err,
+              changes: incoming
+            });
+            ws.send(JSON.stringify({
+              type: SyncResponseType.nack,
+              requestId,
+              message: 'Error applying changes to local DB'
+            }));
+          }
           ws.send(JSON.stringify({
             type: SyncResponseType.ack,
             requestId
           }));
           ws.publish('broadcast', JSON.stringify({
-            changes: incoming
+            changes: incoming,
+            source: syncRequestParams.source
           }), false);
           break;
         case SyncRequestType.pull:

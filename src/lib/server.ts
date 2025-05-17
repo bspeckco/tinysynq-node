@@ -94,13 +94,15 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
       // If we reach here, authentication passed or was not required.
       app.log.debug(`Upgrading connection for ${remoteAddress}, userData:`, userData);
       if (!res.aborted) {
-        res.upgrade(
-          userData,
-          secWebSocketKey,
-          secWebSocketProtocol,
-          secWebSocketExtensions,
-          context
-        );
+        res.cork(() => {
+          res.upgrade(
+            userData,
+            secWebSocketKey,
+            secWebSocketProtocol,
+            secWebSocketExtensions,
+            context
+          );
+        });
       } else {
          app.log.warn(`Upgrade aborted for ${remoteAddress} during auth.`);
       }
@@ -109,9 +111,9 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
       // Error during auth function execution
       app.log.error(`Auth error during upgrade for ${remoteAddress}: ${err.message}`);
       if (!res.aborted) {
-         res.cork(() => {
-             res.writeStatus('500 Internal Server Error').end();
-         });
+        res.cork(() => {
+            res.writeStatus('500 Internal Server Error').end();
+        });
       }
     }
   },
@@ -143,9 +145,9 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
       // --- Handle Authenticated Connections (All connections are considered authenticated here) ---
       // Ensure the message type is a valid SyncRequestType before proceeding
       if (typeof parsed.type !== 'string' || !(Object.values(SyncRequestType).includes(parsed.type as SyncRequestType))) {
-          app.log.warn('INVALID_MESSAGE_TYPE received', { parsed, remoteAddress });
-          ws.send(JSON.stringify({ type: SyncResponseType.nack, requestId: parsed?.requestId, message: `Invalid message type: ${parsed?.type}` }));
-          return;
+        app.log.warn('INVALID_MESSAGE_TYPE received', { parsed, remoteAddress });
+        ws.send(JSON.stringify({ type: SyncResponseType.nack, requestId: parsed?.requestId, message: `Invalid message type: ${parsed?.type}` }));
+        return;
       }
 
       const syncRequestParams = parsed as TSSocketRequestParams;
@@ -164,9 +166,17 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
             return c as Change;
           }) || [];
           app.log.debug('\n<<<< INCOMING >>>>\n', incoming);
-          await app.ts.applyChangesToLocalDB({changes: incoming}); 
+          
+          try {
+            app.ts.applyChangesToLocalDB({changes: incoming});
+          }
+          catch(err) {
+            app.log.error('Error applying changes to local DB', {error: err, changes: incoming});
+            ws.send(JSON.stringify({type: SyncResponseType.nack, requestId, message: 'Error applying changes to local DB'}));
+          }
+
           ws.send(JSON.stringify({type: SyncResponseType.ack, requestId}));
-          ws.publish('broadcast', JSON.stringify({changes: incoming}), false);
+          ws.publish('broadcast', JSON.stringify({changes: incoming, source: syncRequestParams.source}), false);
           break;
         case SyncRequestType.pull:
           const params = { ...syncRequestParams } as any;
