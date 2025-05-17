@@ -29,7 +29,6 @@ const initTinySynq = (config: TinySynqOptions) => {
   const log = new Logger({ name: 'tinysync-setup', ...logOptions});
   const ts = new TinySynq(config);
 
-
   configureInternalTablesSync({ ts, tables });
 
   // Enable debug mode
