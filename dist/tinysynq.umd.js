@@ -74,8 +74,9 @@
       ...logOptions
     });
     const ts = new TinySynq(config);
-    tinysynqLib.createInternalTablesSync({
-      ts
+    tinysynqLib.configureInternalTablesSync({
+      ts,
+      tables
     });
     // Enable debug mode
     if (debug) ts.enableDebug();
@@ -112,10 +113,6 @@
         ts
       });
     }
-    tinysynqLib.applyMigrationsSync({
-      db: ts,
-      logger: log
-    });
     ts.tablesReady();
     if (postInit != null && postInit.length) {
       for (const postInitQuery of postInit) {

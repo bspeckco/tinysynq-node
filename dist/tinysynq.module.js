@@ -1,6 +1,6 @@
 import { Logger } from 'tslog';
 import DB from 'better-sqlite3';
-import { TinySynqSync, createInternalTablesSync, setupTriggersForTableSync, applyMigrationsSync, SyncRequestType, SyncResponseType, LogLevel } from '@bspeckco/tinysynq-lib';
+import { TinySynqSync, configureInternalTablesSync, setupTriggersForTableSync, SyncRequestType, SyncResponseType, LogLevel } from '@bspeckco/tinysynq-lib';
 import 'dotenv/config';
 import * as uWS from 'uWebSockets.js';
 import { threadId } from 'worker_threads';
@@ -53,8 +53,9 @@ const initTinySynq = config => {
     ...logOptions
   });
   const ts = new TinySynq(config);
-  createInternalTablesSync({
-    ts
+  configureInternalTablesSync({
+    ts,
+    tables
   });
   // Enable debug mode
   if (debug) ts.enableDebug();
@@ -91,10 +92,6 @@ const initTinySynq = config => {
       ts
     });
   }
-  applyMigrationsSync({
-    db: ts,
-    logger: log
-  });
   ts.tablesReady();
   if (postInit != null && postInit.length) {
     for (const postInitQuery of postInit) {

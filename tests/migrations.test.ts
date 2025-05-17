@@ -21,7 +21,7 @@ describe('Migrations', () => {
   test('should apply migrations to the database', () => {
     const migrations = MIGRATIONS;
     expect(migrations.length).toBeGreaterThan(0);
-    expect(() => applyMigrationsSync({ db: ts, logger: console }, migrations)).not.toThrow();
+    expect(() => applyMigrationsSync({ ts, logger: console }, migrations)).not.toThrow();
   });
 
   afterAll(() => {

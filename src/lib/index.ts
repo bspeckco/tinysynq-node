@@ -1,11 +1,10 @@
 import { Logger } from "tslog";
 import { TinySynq } from "./tinysynq.class.js";
 import {
-  createInternalTablesSync,
+  configureInternalTablesSync,
   setupTriggersForTableSync,
   TinySynqOptions,
   applyMigrationsSync,
-  MIGRATIONS
 } from "@bspeckco/tinysynq-lib";
 
 /**
@@ -31,7 +30,7 @@ const initTinySynq = (config: TinySynqOptions) => {
   const ts = new TinySynq(config);
 
 
-  createInternalTablesSync({ ts });
+  configureInternalTablesSync({ ts, tables });
 
   // Enable debug mode
   if (debug) ts.enableDebug();
@@ -68,8 +67,6 @@ const initTinySynq = (config: TinySynqOptions) => {
 
     setupTriggersForTableSync({ table, ts });
   }
-
-  applyMigrationsSync({ db: ts, logger: log });
 
   ts.tablesReady();
 
