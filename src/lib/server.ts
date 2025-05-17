@@ -38,8 +38,6 @@ interface WebSocketUserData {
   [key: string]: any; // Allow storing arbitrary data from auth functions
 }
 
-let server;
-
 function arrayBufferToString(arrBuff: ArrayBuffer): string {
   return Buffer.from(arrBuff).toString();
 } 
@@ -151,6 +149,7 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
       }
 
       const syncRequestParams = parsed as TSSocketRequestParams;
+      app.log.warn('@syncRequestParams', syncRequestParams, '/syncRequestParams');
       const { requestId } = syncRequestParams;
       app.log.debug(`@Message (${remoteAddress})!`, syncRequestParams.changes, app.ts.deviceId);
 
@@ -179,6 +178,7 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
           ws.publish('broadcast', JSON.stringify({changes: incoming, source: syncRequestParams.source}), false);
           break;
         case SyncRequestType.pull:
+          app.log.warn('@pull: syncRequestParams', syncRequestParams, '/pull');
           const params = { ...syncRequestParams } as any;
           delete params?.type;
           const changes = await app.ts.getFilteredChanges(syncRequestParams); 
@@ -213,17 +213,19 @@ export interface TinySynqServerControl {
 }
 
 export const startTinySynqServer = (params: TSServerParams): TinySynqServerControl => {
-  let listenSocket: uWS.us_listen_socket | null = null;
-  const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
-  app.ts = params.ts;
-  app.auth = params.auth; // Assign the (renamed) auth function
-  // app.validateAuthData = params.validateAuthData; // Removed
   app.log = new Logger({
     name:'tinysynq-node-ws',
     minLevel: params.logOptions.minLevel || Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
-    type: env.TINYSYNQ_LOG_FORMAT || 'json',
+    type: env.TINYSYNQ_LOG_FORMAT ?? 'json',
     ...(params.logOptions || {})
   });
+  app.log.info(`TinySynq server starting...`);
+  
+  let listenSocket: uWS.us_listen_socket | null = null;
+  const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
+  
+  app.ts = params.ts;
+  app.auth = params.auth;
 
   app.listen(port, socket => {
     listenSocket = socket;

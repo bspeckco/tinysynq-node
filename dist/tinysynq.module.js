@@ -208,6 +208,7 @@ app.ws('/*', {
         return;
       }
       const syncRequestParams = parsed;
+      app.log.warn('@syncRequestParams', syncRequestParams, '/syncRequestParams');
       const {
         requestId
       } = syncRequestParams;
@@ -252,6 +253,7 @@ app.ws('/*', {
           }), false);
           break;
         case SyncRequestType.pull:
+          app.log.warn('@pull: syncRequestParams', syncRequestParams, '/pull');
           const params = {
             ...syncRequestParams
           };
@@ -288,17 +290,18 @@ app.ws('/*', {
   }
 });
 const startTinySynqServer = params => {
-  let listenSocket = null;
-  const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
-  app.ts = params.ts;
-  app.auth = params.auth; // Assign the (renamed) auth function
-  // app.validateAuthData = params.validateAuthData; // Removed
+  var _env$TINYSYNQ_LOG_FOR;
   app.log = new Logger({
     name: 'tinysynq-node-ws',
     minLevel: params.logOptions.minLevel || Number(env.TINYSYNQ_LOG_LEVEL) || LogLevel.Info,
-    type: env.TINYSYNQ_LOG_FORMAT || 'json',
+    type: (_env$TINYSYNQ_LOG_FOR = env.TINYSYNQ_LOG_FORMAT) != null ? _env$TINYSYNQ_LOG_FOR : 'json',
     ...(params.logOptions || {})
   });
+  app.log.info(`TinySynq server starting...`);
+  let listenSocket = null;
+  const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
+  app.ts = params.ts;
+  app.auth = params.auth;
   app.listen(port, socket => {
     listenSocket = socket;
     if (listenSocket) {
