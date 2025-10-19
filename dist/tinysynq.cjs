@@ -43,14 +43,27 @@ class TinySynq extends tinysynqLib.TinySynqSync {
    * @param opts - Configuration options
    */
   constructor(opts) {
+    // If adapter not provided, create one from better-sqlite3
+    if (!opts.adapter) {
+      if (!opts.filePath && !opts.sqlite3) {
+        throw new Error('No DB filePath or connection provided');
+      }
+      const db = opts.sqlite3 || new DB__default["default"](opts.filePath);
+      // Set WAL mode before creating adapter
+      if (opts.wal !== false) {
+        db.pragma('journal_mode = WAL');
+      }
+      const adapter = tinysynqLib.createHybridAdapter({
+        driver: 'better-sqlite3',
+        db,
+        closeOnDispose: !opts.sqlite3 // Only close if we created it
+      });
+      opts = {
+        ...opts,
+        adapter
+      };
+    }
     super(opts);
-    if (!opts.filePath && !opts.sqlite3) {
-      throw new Error('No DB filePath or connection provided');
-    }
-    if (!this.db) {
-      this._db = new DB__default["default"](this.dbPath);
-      this.db.pragma('journal_mode = WAL');
-    }
   }
 }
 

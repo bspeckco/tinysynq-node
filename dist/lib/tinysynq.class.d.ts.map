@@ -1,1 +1,1 @@
-{"version":3,"file":"tinysynq.class.d.ts","sourceRoot":"","sources":["../../src/lib/tinysynq.class.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,YAAY,EAAE,eAAe,EAAE,MAAM,wBAAwB,CAAC;AAEvE;;;;;;;GAOG;AACH,qBAAa,QAAS,SAAQ,YAAY;IAExC;;;;OAIG;gBACS,IAAI,EAAE,eAAe;CAWlC"}
+{"version":3,"file":"tinysynq.class.d.ts","sourceRoot":"","sources":["../../src/lib/tinysynq.class.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,YAAY,EAAE,eAAe,EAAuB,MAAM,wBAAwB,CAAC;AAE5F;;;;;;;GAOG;AACH,qBAAa,QAAS,SAAQ,YAAY;IAExC;;;;OAIG;gBACS,IAAI,EAAE,eAAe;CAyBlC"}

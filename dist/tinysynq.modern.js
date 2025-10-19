@@ -1,6 +1,6 @@
 import { Logger } from 'tslog';
 import DB from 'better-sqlite3';
-import { TinySynqSync, configureInternalTablesSync, setupTriggersForTableSync, SyncRequestType, SyncResponseType, LogLevel } from '@bspeckco/tinysynq-lib';
+import { TinySynqSync, createHybridAdapter, configureInternalTablesSync, setupTriggersForTableSync, SyncRequestType, SyncResponseType, LogLevel } from '@bspeckco/tinysynq-lib';
 import 'dotenv/config';
 import * as uWS from 'uWebSockets.js';
 import { threadId } from 'worker_threads';
@@ -35,14 +35,26 @@ class TinySynq extends TinySynqSync {
    * @param opts - Configuration options
    */
   constructor(opts) {
+    // If adapter not provided, create one from better-sqlite3
+    if (!opts.adapter) {
+      if (!opts.filePath && !opts.sqlite3) {
+        throw new Error('No DB filePath or connection provided');
+      }
+      const db = opts.sqlite3 || new DB(opts.filePath);
+      // Set WAL mode before creating adapter
+      if (opts.wal !== false) {
+        db.pragma('journal_mode = WAL');
+      }
+      const adapter = createHybridAdapter({
+        driver: 'better-sqlite3',
+        db,
+        closeOnDispose: !opts.sqlite3 // Only close if we created it
+      });
+      opts = _extends({}, opts, {
+        adapter
+      });
+    }
     super(opts);
-    if (!opts.filePath && !opts.sqlite3) {
-      throw new Error('No DB filePath or connection provided');
-    }
-    if (!this.db) {
-      this._db = new DB(this.dbPath);
-      this.db.pragma('journal_mode = WAL');
-    }
   }
 }
 
