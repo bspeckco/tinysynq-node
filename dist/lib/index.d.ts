@@ -1,4 +1,3 @@
-import { TinySynq } from "./tinysynq.class.js";
 import { TinySynqOptions } from "@bspeckco/tinysynq-lib";
 /**
  * Returns a configured instance of TinySynq
@@ -8,6 +7,6 @@ import { TinySynqOptions } from "@bspeckco/tinysynq-lib";
  *
  * @public
  */
-declare const initTinySynq: (config: TinySynqOptions) => TinySynq;
+declare const initTinySynq: (config: TinySynqOptions) => import("@bspeckco/tinysynq-lib").TinySynqSync;
 export default initTinySynq;
 //# sourceMappingURL=index.d.ts.map

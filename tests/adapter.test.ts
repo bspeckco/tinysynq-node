@@ -180,7 +180,7 @@ describe('Hybrid Adapter for better-sqlite3', () => {
 
       ts.run({ sql: 'CREATE TABLE test (id TEXT, value TEXT)' });
 
-      const txId = ts.beginTransaction();
+      const txId = (ts as any).beginTransaction();
       expect(txId).toMatch(/^SP\d+/);
 
       ts.run({
@@ -188,7 +188,7 @@ describe('Hybrid Adapter for better-sqlite3', () => {
         values: ['1', 'committed'],
       });
 
-      ts.commitTransaction({ savepoint: txId });
+      (ts as any).commitTransaction({ savepoint: txId });
 
       const result = ts.runQuery<Array<{ id: string; value: string }>>({
         sql: 'SELECT * FROM test',
@@ -208,13 +208,13 @@ describe('Hybrid Adapter for better-sqlite3', () => {
 
       ts.run({ sql: 'CREATE TABLE test (id TEXT, value TEXT)' });
 
-      const txId = ts.beginTransaction();
+      const txId = (ts as any).beginTransaction();
       ts.run({
         sql: 'INSERT INTO test VALUES (?, ?)',
         values: ['1', 'rolled back'],
       });
 
-      ts.rollbackTransaction({ savepoint: txId });
+      (ts as any).rollbackTransaction({ savepoint: txId });
 
       const result = ts.runQuery<Array<{ id: string; value: string }>>({
         sql: 'SELECT * FROM test',
@@ -233,14 +233,14 @@ describe('Hybrid Adapter for better-sqlite3', () => {
 
       ts.run({ sql: 'CREATE TABLE test (id TEXT, value TEXT)' });
 
-      const tx1 = ts.beginTransaction();
+      const tx1 = (ts as any).beginTransaction();
       ts.run({ sql: 'INSERT INTO test VALUES (?, ?)', values: ['1', 'outer'] });
 
-      const tx2 = ts.beginTransaction();
+      const tx2 = (ts as any).beginTransaction();
       ts.run({ sql: 'INSERT INTO test VALUES (?, ?)', values: ['2', 'inner'] });
-      ts.rollbackTransaction({ savepoint: tx2 });
+      (ts as any).rollbackTransaction({ savepoint: tx2 });
 
-      ts.commitTransaction({ savepoint: tx1 });
+      (ts as any).commitTransaction({ savepoint: tx1 });
 
       const result = ts.runQuery<Array<{ id: string }>>({
         sql: 'SELECT id FROM test ORDER BY id',

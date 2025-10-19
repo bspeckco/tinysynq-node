@@ -1,6 +1,6 @@
 declare const _default: {
     startTinySynqServer: (params: import("./lib/server.js").TSServerParams) => import("./lib/server.js").TinySynqServerControl;
-    initTinySynq: (config: import("@bspeckco/tinysynq-lib").TinySynqOptions) => import("./lib/tinysynq.class.js").TinySynq;
+    initTinySynq: (config: import("@bspeckco/tinysynq-lib").TinySynqOptions) => import("@bspeckco/tinysynq-lib").TinySynqSync;
 };
 export default _default;
 export type { BetterSqlite3Instance, } from './lib/types.js';

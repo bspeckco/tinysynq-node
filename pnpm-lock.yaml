@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@bspeckco/tinysynq-lib':
-        specifier: 2.2.1
-        version: 2.2.1(typescript@5.3.3)
+        specifier: 2.3.0
+        version: 2.3.0(typescript@5.3.3)
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.4.1
@@ -24,8 +24,8 @@ importers:
         specifier: ^5.0.5
         version: 5.0.5
       tslog:
-        specifier: ^4.9.2
-        version: 4.9.2
+        specifier: ^4.9.3
+        version: 4.9.3
       uWebSockets.js:
         specifier: github:uNetworking/uWebSockets.js#v20.52.0
         version: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/cfc9a40d8132a34881813cec3d5f8e3a185b3ce3
@@ -709,8 +709,8 @@ packages:
     resolution: {integrity: sha512-dQjSq/7HaSjRM43FFGnv5keM2HsxpmyV1PfaSVm0nzzjwwTmjOe6J4bC8e3+pTEIgHaHj+1ZlLThRJ2auc/w1Q==}
     engines: {node: '>=6.9.0'}
 
-  '@bspeckco/tinysynq-lib@2.2.1':
-    resolution: {integrity: sha512-r54JEHD+79/cchHSnyhbt7+KRPiMcxawTHq4HtsFlD9ypnpaLBKdoJI+rxckR/BLenNTKyPv2xiQLrCYjm0r9w==}
+  '@bspeckco/tinysynq-lib@2.3.0':
+    resolution: {integrity: sha512-z9k7PsazEnLRd6J/D7oTgeUaA0m/Ul7tPMK9zmcjUJZqUUUeptar8KWxZ3lTKTG2nMAHQr0rdCJu0jiwK1CesA==}
     peerDependencies:
       typescript: ^5.0.0
 
@@ -3320,10 +3320,6 @@ packages:
   tslib@2.6.2:
     resolution: {integrity: sha512-AEYxH93jGFPn/a2iVAwW87VuUIkR1FVUKB77NwMF7nBTDkDrrT/Hpt/IrCJ0QXhW27jTBDcf5ZY7w6RiqTMw2Q==}
 
-  tslog@4.9.2:
-    resolution: {integrity: sha512-wBM+LRJoNl34Bdu8mYEFxpvmOUedpNUwMNQB/NcuPIZKwdDde6xLHUev3bBjXQU7gdurX++X/YE7gLH8eXYsiQ==}
-    engines: {node: '>=16'}
-
   tslog@4.9.3:
     resolution: {integrity: sha512-oDWuGVONxhVEBtschLf2cs/Jy8i7h1T+CpdkTNWQgdAF7DhRo2G8vMCgILKe7ojdEkLhICWgI1LYSSKaJsRgcw==}
     engines: {node: '>=16'}
@@ -4356,7 +4352,7 @@ snapshots:
       '@babel/helper-validator-identifier': 7.22.20
       to-fast-properties: 2.0.0
 
-  '@bspeckco/tinysynq-lib@2.2.1(typescript@5.3.3)':
+  '@bspeckco/tinysynq-lib@2.3.0(typescript@5.3.3)':
     dependencies:
       date-fns: 3.6.0
       dotenv: 16.4.5
@@ -7143,8 +7139,6 @@ snapshots:
   trim-newlines@3.0.1: {}
 
   tslib@2.6.2: {}
-
-  tslog@4.9.2: {}
 
   tslog@4.9.3: {}
 
