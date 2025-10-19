@@ -9,7 +9,6 @@ import { Change } from '@bspeckco/tinysynq-lib';
 import { GetTableIdColumnParams } from '@bspeckco/tinysynq-lib';
 import { QueryParams } from '@bspeckco/tinysynq-lib';
 import { SyncableTable } from '@bspeckco/tinysynq-lib';
-import { TinySynq as TinySynq_2 } from './lib/tinysynq.class.js';
 import { TinySynqOptions } from '@bspeckco/tinysynq-lib';
 import { TinySynqServerControl } from './lib/server.js';
 import { TinySynqSync } from '@bspeckco/tinysynq-lib';
@@ -22,7 +21,7 @@ export { Change }
 // @public (undocumented)
 const _default: {
     startTinySynqServer: (params: TSServerParams) => TinySynqServerControl;
-    initTinySynq: (config: TinySynqOptions) => TinySynq_2;
+    initTinySynq: (config: TinySynqOptions) => TinySynqSync;
 };
 export default _default;
 
