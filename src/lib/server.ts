@@ -2,7 +2,7 @@ import { env } from './env.js';
 import * as uWS from 'uWebSockets.js';
 import { threadId } from 'worker_threads';
 import { TinySynq } from './tinysynq.class.js';
-import { Change, LogLevel, SyncRequestType, SyncResponseType } from '@bspeckco/tinysynq-lib';
+import { Change, LogLevel, SyncRequestType, SyncResponseType, TinySynqTelemetryEmitter } from '@bspeckco/tinysynq-lib';
 import { ILogObj, ISettingsParam, Logger } from 'tslog';
 
 
@@ -10,6 +10,7 @@ interface TSTemplatedApp extends uWS.TemplatedApp {
   ts: TinySynq;
   log: Logger<ILogObj>;
   auth?: (req: uWS.HttpRequest) => Promise<boolean | Record<string, any>>;
+  telemetry?: TinySynqTelemetryEmitter;
 }
 
 export type SocketRequestType = SyncRequestType; 
@@ -19,6 +20,7 @@ export interface TSServerParams {
   port?: number;
   logOptions: ISettingsParam<ILogObj>;
   auth?: (req: uWS.HttpRequest) => Promise<boolean | Record<string, any>>; // Handles auth during upgrade (headers/cookies)
+  telemetry?: TinySynqTelemetryEmitter;
 }
 
 // Represents incoming push/pull requests (from tinysynq-lib)
@@ -119,6 +121,12 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
   open: (ws) => {
     const userData = ws.getUserData();
     app.log.warn('@Connected!', userData);
+    app.telemetry?.emit({
+      type: 'hub.connection.open',
+      data: {
+        remoteAddress: userData.remoteAddress,
+      },
+    });
     ws.subscribe('broadcast');
   },
 
@@ -139,6 +147,14 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
       }
 
       app.log.trace(`Raw message from ${remoteAddress}:`, parsed);
+      app.telemetry?.emit({
+        type: 'hub.message.received',
+        data: {
+          remoteAddress,
+          requestId: parsed?.requestId,
+          type: parsed?.type,
+        },
+      });
 
       // --- Handle Authenticated Connections (All connections are considered authenticated here) ---
       // Ensure the message type is a valid SyncRequestType before proceeding
@@ -165,17 +181,44 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
             return c as Change;
           }) || [];
           app.log.debug('\n<<<< INCOMING >>>>\n', incoming);
+          app.telemetry?.emit({
+            type: 'hub.push.received',
+            data: {
+              remoteAddress,
+              requestId,
+              changeCount: incoming.length,
+              source: syncRequestParams.source,
+            },
+          });
           
           try {
             app.ts.applyChangesToLocalDB({changes: incoming});
           }
           catch(err) {
-            app.log.error('Error applying changes to local DB', {error: err, changes: incoming});
-            ws.send(JSON.stringify({type: SyncResponseType.nack, requestId, message: 'Error applying changes to local DB'}));
+          app.log.error('Error applying changes to local DB', {error: err, changes: incoming});
+          ws.send(JSON.stringify({type: SyncResponseType.nack, requestId, message: 'Error applying changes to local DB'}));
+          app.telemetry?.emit({
+            type: 'hub.push.error',
+            data: {
+              remoteAddress,
+              requestId,
+              changeCount: incoming.length,
+              error: err instanceof Error ? err.message : String(err),
+            },
+          });
           }
 
           ws.send(JSON.stringify({type: SyncResponseType.ack, requestId}));
           ws.publish('broadcast', JSON.stringify({changes: incoming, source: syncRequestParams.source}), false);
+          app.telemetry?.emit({
+            type: 'hub.push.applied',
+            data: {
+              remoteAddress,
+              requestId,
+              changeCount: incoming.length,
+              source: syncRequestParams.source,
+            },
+          });
           break;
         case SyncRequestType.pull:
           app.log.warn('@pull: syncRequestParams', syncRequestParams, '/pull');
@@ -184,6 +227,16 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
           const changes = await app.ts.getFilteredChanges(syncRequestParams); 
           app.log.debug('@pull: outgoing:', changes);
           ws.send(JSON.stringify({type: SyncResponseType.ack, requestId, changes}));
+          app.telemetry?.emit({
+            type: 'hub.pull.sent',
+            data: {
+              remoteAddress,
+              requestId,
+              changeCount: Array.isArray(changes) ? changes.length : 0,
+              since: syncRequestParams.since,
+              checkpoint: syncRequestParams.checkpoint,
+            },
+          });
           break;
         default:
           throw new Error(`Invalid request type on connection: '${syncRequestParams.type}'`);
@@ -201,9 +254,28 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
       } catch (sendError: any) {
           app.log.warn(`Failed to send error NACK to ${remoteAddress}, connection likely closed: ${sendError.message}`);
       }
+      app.telemetry?.emit({
+        type: 'hub.message.error',
+        data: {
+          remoteAddress,
+          requestId: parsed?.requestId,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
        ws.close();
     }
   },
+  close: (ws, code, message) => {
+    const userData = ws.getUserData();
+    app.telemetry?.emit({
+      type: 'hub.connection.close',
+      data: {
+        remoteAddress: userData.remoteAddress,
+        code,
+        message: Buffer.from(message).toString(),
+      },
+    });
+  }
 
 });
 
@@ -223,9 +295,13 @@ export const startTinySynqServer = (params: TSServerParams): TinySynqServerContr
   
   let listenSocket: uWS.us_listen_socket | null = null;
   const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
-  
+
+  if (params.telemetry) {
+    params.ts.setTelemetryEmitter(params.telemetry);
+  }
   app.ts = params.ts;
   app.auth = params.auth;
+  app.telemetry = params.telemetry;
 
   app.listen(port, socket => {
     listenSocket = socket;

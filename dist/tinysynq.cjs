@@ -163,16 +163,24 @@ app.ws('/*', {
     }
   },
   open: ws => {
+    var _app$telemetry;
     const userData = ws.getUserData();
     app.log.warn('@Connected!', userData);
+    (_app$telemetry = app.telemetry) == null || _app$telemetry.emit({
+      type: 'hub.connection.open',
+      data: {
+        remoteAddress: userData.remoteAddress
+      }
+    });
     ws.subscribe('broadcast');
   },
   message: async (ws, message, isBinary) => {
-    var _syncRequestParams$ch;
+    var _syncRequestParams$ch, _app$telemetry3, _app$telemetry5, _app$telemetry6;
     const userData = ws.getUserData();
     const remoteAddress = userData.remoteAddress;
     let parsed;
     try {
+      var _app$telemetry2, _parsed, _parsed2;
       // Ensure message is parsed safely
       try {
         const messageString = arrayBufferToString(message);
@@ -183,18 +191,26 @@ app.ws('/*', {
         return;
       }
       app.log.trace(`Raw message from ${remoteAddress}:`, parsed);
+      (_app$telemetry2 = app.telemetry) == null || _app$telemetry2.emit({
+        type: 'hub.message.received',
+        data: {
+          remoteAddress,
+          requestId: (_parsed = parsed) == null ? void 0 : _parsed.requestId,
+          type: (_parsed2 = parsed) == null ? void 0 : _parsed2.type
+        }
+      });
       // --- Handle Authenticated Connections (All connections are considered authenticated here) ---
       // Ensure the message type is a valid SyncRequestType before proceeding
       if (typeof parsed.type !== 'string' || !Object.values(tinysynqLib.SyncRequestType).includes(parsed.type)) {
-        var _parsed, _parsed2;
+        var _parsed3, _parsed4;
         app.log.warn('INVALID_MESSAGE_TYPE received', {
           parsed,
           remoteAddress
         });
         ws.send(JSON.stringify({
           type: tinysynqLib.SyncResponseType.nack,
-          requestId: (_parsed = parsed) == null ? void 0 : _parsed.requestId,
-          message: `Invalid message type: ${(_parsed2 = parsed) == null ? void 0 : _parsed2.type}`
+          requestId: (_parsed3 = parsed) == null ? void 0 : _parsed3.requestId,
+          message: `Invalid message type: ${(_parsed4 = parsed) == null ? void 0 : _parsed4.type}`
         }));
         return;
       }
@@ -219,11 +235,21 @@ app.ws('/*', {
             return c;
           })) || [];
           app.log.debug('\n<<<< INCOMING >>>>\n', incoming);
+          (_app$telemetry3 = app.telemetry) == null || _app$telemetry3.emit({
+            type: 'hub.push.received',
+            data: {
+              remoteAddress,
+              requestId,
+              changeCount: incoming.length,
+              source: syncRequestParams.source
+            }
+          });
           try {
             app.ts.applyChangesToLocalDB({
               changes: incoming
             });
           } catch (err) {
+            var _app$telemetry4;
             app.log.error('Error applying changes to local DB', {
               error: err,
               changes: incoming
@@ -233,6 +259,15 @@ app.ws('/*', {
               requestId,
               message: 'Error applying changes to local DB'
             }));
+            (_app$telemetry4 = app.telemetry) == null || _app$telemetry4.emit({
+              type: 'hub.push.error',
+              data: {
+                remoteAddress,
+                requestId,
+                changeCount: incoming.length,
+                error: err instanceof Error ? err.message : String(err)
+              }
+            });
           }
           ws.send(JSON.stringify({
             type: tinysynqLib.SyncResponseType.ack,
@@ -242,6 +277,15 @@ app.ws('/*', {
             changes: incoming,
             source: syncRequestParams.source
           }), false);
+          (_app$telemetry5 = app.telemetry) == null || _app$telemetry5.emit({
+            type: 'hub.push.applied',
+            data: {
+              remoteAddress,
+              requestId,
+              changeCount: incoming.length,
+              source: syncRequestParams.source
+            }
+          });
           break;
         case tinysynqLib.SyncRequestType.pull:
           app.log.warn('@pull: syncRequestParams', syncRequestParams, '/pull');
@@ -256,28 +300,59 @@ app.ws('/*', {
             requestId,
             changes
           }));
+          (_app$telemetry6 = app.telemetry) == null || _app$telemetry6.emit({
+            type: 'hub.pull.sent',
+            data: {
+              remoteAddress,
+              requestId,
+              changeCount: Array.isArray(changes) ? changes.length : 0,
+              since: syncRequestParams.since,
+              checkpoint: syncRequestParams.checkpoint
+            }
+          });
           break;
         default:
           throw new Error(`Invalid request type on connection: '${syncRequestParams.type}'`);
       }
     } catch (err) {
+      var _app$telemetry7, _parsed6;
       // General error handling for message processing
       app.log.error(`Top-level message handler error for ${remoteAddress}: ${err.message}`, {
         error: err,
         parsed
       });
       try {
-        var _parsed3;
+        var _parsed5;
         ws.send(JSON.stringify({
           type: tinysynqLib.SyncResponseType.nack,
-          requestId: (_parsed3 = parsed) == null ? void 0 : _parsed3.requestId,
+          requestId: (_parsed5 = parsed) == null ? void 0 : _parsed5.requestId,
           message: `Server error processing message: ${err.message}`
         }));
       } catch (sendError) {
         app.log.warn(`Failed to send error NACK to ${remoteAddress}, connection likely closed: ${sendError.message}`);
       }
+      (_app$telemetry7 = app.telemetry) == null || _app$telemetry7.emit({
+        type: 'hub.message.error',
+        data: {
+          remoteAddress,
+          requestId: (_parsed6 = parsed) == null ? void 0 : _parsed6.requestId,
+          error: err instanceof Error ? err.message : String(err)
+        }
+      });
       ws.close();
     }
+  },
+  close: (ws, code, message) => {
+    var _app$telemetry8;
+    const userData = ws.getUserData();
+    (_app$telemetry8 = app.telemetry) == null || _app$telemetry8.emit({
+      type: 'hub.connection.close',
+      data: {
+        remoteAddress: userData.remoteAddress,
+        code,
+        message: Buffer.from(message).toString()
+      }
+    });
   }
 });
 const startTinySynqServer = params => {
@@ -291,8 +366,12 @@ const startTinySynqServer = params => {
   app.log.info(`TinySynq server starting...`);
   let listenSocket = null;
   const port = params.port || Number(env.TINYSYNQ_WS_PORT) || 7174;
+  if (params.telemetry) {
+    params.ts.setTelemetryEmitter(params.telemetry);
+  }
   app.ts = params.ts;
   app.auth = params.auth;
+  app.telemetry = params.telemetry;
   app.listen(port, socket => {
     listenSocket = socket;
     if (listenSocket) {

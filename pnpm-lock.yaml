@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@bspeckco/tinysynq-lib':
-        specifier: 2.4.0
-        version: 2.4.0(typescript@5.3.3)
+        specifier: 2.5.1
+        version: 2.5.1(typescript@5.3.3)
       better-sqlite3:
         specifier: ^12.4.1
         version: 12.4.1
@@ -709,8 +709,8 @@ packages:
     resolution: {integrity: sha512-dQjSq/7HaSjRM43FFGnv5keM2HsxpmyV1PfaSVm0nzzjwwTmjOe6J4bC8e3+pTEIgHaHj+1ZlLThRJ2auc/w1Q==}
     engines: {node: '>=6.9.0'}
 
-  '@bspeckco/tinysynq-lib@2.4.0':
-    resolution: {integrity: sha512-VvgXss/sVGSBRVggMZpBGrx4Ix1EC87tc65tJbjp6A30xWMxO48ZJQCrfLuQaorjkpmVszgA3lqZIn2EhieyZg==}
+  '@bspeckco/tinysynq-lib@2.5.1':
+    resolution: {integrity: sha512-eK/nMX22O9W8jYwsnf3jNFf7PKpHswXQov4nnJbpSckhBk5c86rMpoRQR3BOQDR+vgbzc/zLLsZvke0U7Qo7+A==}
     peerDependencies:
       typescript: ^5.0.0
 
@@ -2429,8 +2429,8 @@ packages:
     engines: {node: ^18 || >=20}
     hasBin: true
 
-  nanoid@5.1.5:
-    resolution: {integrity: sha512-Ir/+ZpE9fDsNH0hQ3C68uyThDXzYcim2EqcZ8zn8Chtt1iylPT9xXJB0kPCnqzgcEGikO9RxSrh63MsmVCU7Fw==}
+  nanoid@5.1.6:
+    resolution: {integrity: sha512-c7+7RQ+dMB5dPwwCp4ee1/iV/q2P6aK1mTZcfr1BTuVlyW9hJYiMPybJCcnBlQtuSmTIWNeazm/zqNoZSSElBg==}
     engines: {node: ^18 || >=20}
     hasBin: true
 
@@ -4352,11 +4352,11 @@ snapshots:
       '@babel/helper-validator-identifier': 7.22.20
       to-fast-properties: 2.0.0
 
-  '@bspeckco/tinysynq-lib@2.4.0(typescript@5.3.3)':
+  '@bspeckco/tinysynq-lib@2.5.1(typescript@5.3.3)':
     dependencies:
       date-fns: 3.6.0
       dotenv: 16.4.5
-      nanoid: 5.1.5
+      nanoid: 5.1.6
       tslog: 4.9.3
       typescript: 5.3.3
 
@@ -6214,7 +6214,7 @@ snapshots:
 
   nanoid@5.0.5: {}
 
-  nanoid@5.1.5: {}
+  nanoid@5.1.6: {}
 
   napi-build-utils@1.0.2: {}
 
