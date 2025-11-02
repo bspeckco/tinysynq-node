@@ -8,5 +8,5 @@
 
 |  Package | Description |
 |  --- | --- |
-|  [tinysynq-node](./tinysynq-node.md) |  |
+|  [@bspeckco/tinysynq-node](./tinysynq-node.md) |  |
 

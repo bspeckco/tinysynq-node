@@ -1,5 +1,5 @@
 {
-  "name": "tinysynq-node",
+  "name": "@bspeckco/tinysynq-node",
   "type": "module",
   "source": "src/index.ts",
   "license": "MIT",
