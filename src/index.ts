@@ -15,6 +15,6 @@ export type {
   QueryParams,
 } from '@bspeckco/tinysynq-lib';
 
-export type {
+export {
   TinySynq,
 } from './lib/tinysynq.class.js';

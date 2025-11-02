@@ -399,5 +399,6 @@ var index = {
   initTinySynq: initTinySynq
 };
 
-module.exports = index;
+exports.TinySynq = TinySynq;
+exports["default"] = index;
 //# sourceMappingURL=tinysynq.cjs.map

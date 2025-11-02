@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('tslog'), require('better-sqlite3'), require('@bspeckco/tinysynq-lib'), require('dotenv/config'), require('uWebSockets.js'), require('worker_threads')) :
-  typeof define === 'function' && define.amd ? define(['tslog', 'better-sqlite3', '@bspeckco/tinysynq-lib', 'dotenv/config', 'uWebSockets.js', 'worker_threads'], factory) :
-  (global = global || self, global.tinysynqNode = factory(global.tslog, global.betterSqlite3, global.tinysynqLib, null, global.uWS, global.workerThreads));
-})(this, (function (tslog, DB, tinysynqLib, config, uWS, worker_threads) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('tslog'), require('better-sqlite3'), require('@bspeckco/tinysynq-lib'), require('dotenv/config'), require('uWebSockets.js'), require('worker_threads')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'tslog', 'better-sqlite3', '@bspeckco/tinysynq-lib', 'dotenv/config', 'uWebSockets.js', 'worker_threads'], factory) :
+  (global = global || self, factory(global.tinysynqNode = {}, global.tslog, global.betterSqlite3, global.tinysynqLib, null, global.uWS, global.workerThreads));
+})(this, (function (exports, tslog, DB, tinysynqLib, config, uWS, worker_threads) {
   function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
   function _interopNamespace(e) {
@@ -397,7 +397,8 @@
     initTinySynq: initTinySynq
   };
 
-  return index;
+  exports.TinySynq = TinySynq;
+  exports["default"] = index;
 
 }));
 //# sourceMappingURL=tinysynq.umd.js.map

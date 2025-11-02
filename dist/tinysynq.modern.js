@@ -386,5 +386,5 @@ var index = {
   initTinySynq: initTinySynq
 };
 
-export { index as default };
+export { TinySynq, index as default };
 //# sourceMappingURL=tinysynq.modern.js.map
