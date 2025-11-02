@@ -7,12 +7,18 @@
 import { BetterSqlite3Instance } from './lib/types.js';
 import { Change } from '@bspeckco/tinysynq-lib';
 import { GetTableIdColumnParams } from '@bspeckco/tinysynq-lib';
+import { ILogObj } from 'tslog';
+import { ISettingsParam } from 'tslog';
+import { Logger } from 'tslog';
 import { QueryParams } from '@bspeckco/tinysynq-lib';
 import { SyncableTable } from '@bspeckco/tinysynq-lib';
+import { SyncRequestType } from '@bspeckco/tinysynq-lib';
 import { TinySynqOptions } from '@bspeckco/tinysynq-lib';
-import { TinySynqServerControl } from './lib/server.js';
+import { TinySynqServerControl as TinySynqServerControl_2 } from './lib/server.js';
 import { TinySynqSync } from '@bspeckco/tinysynq-lib';
-import { TSServerParams } from './lib/server.js';
+import { TinySynqTelemetryEmitter } from '@bspeckco/tinysynq-lib';
+import { TSServerParams as TSServerParams_2 } from './lib/server.js';
+import * as uWS from 'uWebSockets.js';
 
 export { BetterSqlite3Instance }
 
@@ -20,14 +26,23 @@ export { Change }
 
 // @public (undocumented)
 const _default: {
-    startTinySynqServer: (params: TSServerParams) => TinySynqServerControl;
+    startTinySynqServer: (params: TSServerParams_2) => TinySynqServerControl_2;
     initTinySynq: (config: TinySynqOptions) => TinySynqSync;
 };
 export default _default;
 
 export { GetTableIdColumnParams }
 
+// @public
+export const initTinySynq: (config: TinySynqOptions) => TinySynqSync;
+
 export { QueryParams }
+
+// @public (undocumented)
+export type SocketRequestType = SyncRequestType;
+
+// @public (undocumented)
+export const startTinySynqServer: (params: TSServerParams) => TinySynqServerControl;
 
 export { SyncableTable }
 
@@ -37,6 +52,46 @@ export class TinySynq extends TinySynqSync {
 }
 
 export { TinySynqOptions }
+
+// @public (undocumented)
+export interface TinySynqServerControl {
+    // Warning: (ae-forgotten-export) The symbol "TSTemplatedApp" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    app: TSTemplatedApp;
+    // (undocumented)
+    close: () => void;
+}
+
+// @public (undocumented)
+export interface TSServerParams {
+    // (undocumented)
+    auth?: (req: uWS.HttpRequest) => Promise<boolean | Record<string, any>>;
+    // (undocumented)
+    logOptions: ISettingsParam<ILogObj>;
+    // (undocumented)
+    port?: number;
+    // (undocumented)
+    telemetry?: TinySynqTelemetryEmitter;
+    // (undocumented)
+    ts: TinySynq;
+}
+
+// @public (undocumented)
+export interface TSSocketRequestParams {
+    // (undocumented)
+    changes?: Change[];
+    // (undocumented)
+    checkpoint: number;
+    // (undocumented)
+    requestId?: string;
+    // (undocumented)
+    since: string;
+    // (undocumented)
+    source?: string;
+    // (undocumented)
+    type: SyncRequestType;
+}
 
 // (No @packageDocumentation comment for this package)
 

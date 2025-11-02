@@ -10,9 +10,30 @@
 |  --- | --- |
 |  [TinySynq](./tinysynq-node.tinysynq.md) | The main class for managing SQLite3 synchronisation. |
 
+## Functions
+
+|  Function | Description |
+|  --- | --- |
+|  [initTinySynq(config)](./tinysynq-node.inittinysynq.md) | Returns a configured instance of TinySynq |
+|  [startTinySynqServer(params)](./tinysynq-node.starttinysynqserver.md) |  |
+
+## Interfaces
+
+|  Interface | Description |
+|  --- | --- |
+|  [TinySynqServerControl](./tinysynq-node.tinysynqservercontrol.md) |  |
+|  [TSServerParams](./tinysynq-node.tsserverparams.md) |  |
+|  [TSSocketRequestParams](./tinysynq-node.tssocketrequestparams.md) |  |
+
 ## Variables
 
 |  Variable | Description |
 |  --- | --- |
 |  [\_default](./tinysynq-node._default.md) |  |
+
+## Type Aliases
+
+|  Type Alias | Description |
+|  --- | --- |
+|  [SocketRequestType](./tinysynq-node.socketrequesttype.md) |  |
 

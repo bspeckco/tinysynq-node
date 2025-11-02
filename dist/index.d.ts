@@ -1,9 +1,13 @@
+import initTinySynq from './lib/index.js';
+import { startTinySynqServer } from './lib/server.js';
+export { initTinySynq, startTinySynqServer };
 declare const _default: {
     startTinySynqServer: (params: import("./lib/server.js").TSServerParams) => import("./lib/server.js").TinySynqServerControl;
     initTinySynq: (config: import("@bspeckco/tinysynq-lib").TinySynqOptions) => import("@bspeckco/tinysynq-lib").TinySynqSync;
 };
 export default _default;
 export type { BetterSqlite3Instance, } from './lib/types.js';
+export type { SocketRequestType, TSServerParams, TSSocketRequestParams, TinySynqServerControl, } from './lib/server.js';
 export type { SyncableTable, TinySynqOptions, GetTableIdColumnParams, Change, QueryParams, } from '@bspeckco/tinysynq-lib';
 export { TinySynq, } from './lib/tinysynq.class.js';
 //# sourceMappingURL=index.d.ts.map

@@ -373,8 +373,8 @@ const startTinySynqServer = params => {
 
 var index = {
   startTinySynqServer,
-  initTinySynq: initTinySynq
+  initTinySynq
 };
 
-export { TinySynq, index as default };
+export { TinySynq, index as default, initTinySynq, startTinySynqServer };
 //# sourceMappingURL=tinysynq.module.js.map

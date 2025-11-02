@@ -394,11 +394,13 @@
 
   var index = {
     startTinySynqServer,
-    initTinySynq: initTinySynq
+    initTinySynq
   };
 
   exports.TinySynq = TinySynq;
   exports["default"] = index;
+  exports.initTinySynq = initTinySynq;
+  exports.startTinySynqServer = startTinySynqServer;
 
 }));
 //# sourceMappingURL=tinysynq.umd.js.map
