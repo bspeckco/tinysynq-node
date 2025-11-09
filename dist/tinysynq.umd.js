@@ -242,10 +242,16 @@
                 source: syncRequestParams.source
               }
             });
+            let lastAppliedChangeId;
+            let lastAppliedChangeTime;
             try {
+              var _lastChange$id, _lastChange$modified;
               await app.ts.applyChangesToLocalDB({
                 changes: incoming
               });
+              const lastChange = incoming[incoming.length - 1];
+              lastAppliedChangeId = (_lastChange$id = lastChange == null ? void 0 : lastChange.id) != null ? _lastChange$id : undefined;
+              lastAppliedChangeTime = (_lastChange$modified = lastChange == null ? void 0 : lastChange.modified) != null ? _lastChange$modified : undefined;
             } catch (err) {
               var _app$telemetry4;
               app.log.error('Error applying changes to local DB', {
@@ -270,7 +276,9 @@
             }
             ws.send(JSON.stringify({
               type: tinysynqLib.SyncResponseType.ack,
-              requestId
+              requestId,
+              lastChangeId: lastAppliedChangeId,
+              lastChangeTime: lastAppliedChangeTime
             }));
             ws.publish('broadcast', JSON.stringify({
               changes: incoming,

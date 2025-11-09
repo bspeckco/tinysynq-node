@@ -191,8 +191,15 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
             },
           });
           
+          let lastAppliedChangeId: number | string | undefined;
+          let lastAppliedChangeTime: string | undefined;
+
           try {
             await app.ts.applyChangesToLocalDB({changes: incoming});
+
+            const lastChange = incoming[incoming.length - 1];
+            lastAppliedChangeId = lastChange?.id ?? undefined;
+            lastAppliedChangeTime = lastChange?.modified ?? undefined;
           }
           catch(err) {
             app.log.error('Error applying changes to local DB', {error: err, changes: incoming});
@@ -209,7 +216,12 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
             break;
           }
 
-          ws.send(JSON.stringify({type: SyncResponseType.ack, requestId}));
+          ws.send(JSON.stringify({
+            type: SyncResponseType.ack,
+            requestId,
+            lastChangeId: lastAppliedChangeId,
+            lastChangeTime: lastAppliedChangeTime,
+          }));
           ws.publish('broadcast', JSON.stringify({changes: incoming, source: syncRequestParams.source}), false);
           app.telemetry?.emit({
             type: 'hub.push.applied',

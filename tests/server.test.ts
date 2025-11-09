@@ -236,6 +236,60 @@ describe('Server', () => {
     applySpy.mockRestore();
   }, { timeout: 5000 });
 
+  test('includes lastChangeId and lastChangeTime on successful push ack', async () => {
+    cleanup();
+    ts = getConfiguredDb({ useDefault: true });
+    serverControl = startTinySynqServer({ ts, logOptions: { minLevel: 5 }, port: TEST_PORT });
+
+    const result = await new Promise<any>((resolve, reject) => {
+      const ws = new WebSocket(`ws://localhost:${TEST_PORT}`);
+      const timeoutId = setTimeout(() => {
+        ws.close();
+        reject(new Error('Timed out waiting for ACK'));
+      }, 2000);
+
+      ws.on('open', () => {
+        const requestId = 'req-success-test';
+        const now = new Date().toISOString();
+        const id = 'item-success-test';
+        const change = {
+          id: 123,
+          table_name: 'items',
+          row_id: id,
+          operation: 'INSERT',
+          data: JSON.stringify({ item_id: id, name: 'Server push success' }),
+          source: 'client-under-test',
+          vclock: { 'client-under-test': 1 },
+          modified: now,
+        };
+        ws.send(JSON.stringify({
+          type: 'push',
+          requestId,
+          source: 'client-under-test',
+          since: now,
+          checkpoint: 0,
+          changes: [change],
+        }));
+      });
+
+      ws.on('message', (data) => {
+        clearTimeout(timeoutId);
+        ws.close();
+        resolve(JSON.parse(data.toString()));
+      });
+
+      ws.on('error', (err) => {
+        clearTimeout(timeoutId);
+        ws.close();
+        reject(err);
+      });
+    });
+
+    expect(result).toMatchObject({ type: 'ack', requestId: 'req-success-test' });
+    expect(result.lastChangeId).toBeDefined();
+    expect(result.lastChangeTime).toBeDefined();
+  }, { timeout: 5000 });
+
   // --- Bearer Token (Auth) Tests ---
 
   const bearerAuth = (validToken: string) => async (req: HttpRequest) => {
