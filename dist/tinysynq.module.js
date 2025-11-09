@@ -222,7 +222,7 @@ app.ws('/*', {
             }
           });
           try {
-            app.ts.applyChangesToLocalDB({
+            await app.ts.applyChangesToLocalDB({
               changes: incoming
             });
           } catch (err) {
@@ -245,6 +245,7 @@ app.ws('/*', {
                 error: err instanceof Error ? err.message : String(err)
               }
             });
+            break;
           }
           ws.send(JSON.stringify({
             type: SyncResponseType.ack,

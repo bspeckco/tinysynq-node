@@ -192,20 +192,21 @@ app.ws<WebSocketUserData>('/*', { // Specify UserData type here
           });
           
           try {
-            app.ts.applyChangesToLocalDB({changes: incoming});
+            await app.ts.applyChangesToLocalDB({changes: incoming});
           }
           catch(err) {
-          app.log.error('Error applying changes to local DB', {error: err, changes: incoming});
-          ws.send(JSON.stringify({type: SyncResponseType.nack, requestId, message: 'Error applying changes to local DB'}));
-          app.telemetry?.emit({
-            type: 'hub.push.error',
-            data: {
-              remoteAddress,
-              requestId,
-              changeCount: incoming.length,
-              error: err instanceof Error ? err.message : String(err),
-            },
-          });
+            app.log.error('Error applying changes to local DB', {error: err, changes: incoming});
+            ws.send(JSON.stringify({type: SyncResponseType.nack, requestId, message: 'Error applying changes to local DB'}));
+            app.telemetry?.emit({
+              type: 'hub.push.error',
+              data: {
+                remoteAddress,
+                requestId,
+                changeCount: incoming.length,
+                error: err instanceof Error ? err.message : String(err),
+              },
+            });
+            break;
           }
 
           ws.send(JSON.stringify({type: SyncResponseType.ack, requestId}));

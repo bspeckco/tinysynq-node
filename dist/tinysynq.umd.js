@@ -243,7 +243,7 @@
               }
             });
             try {
-              app.ts.applyChangesToLocalDB({
+              await app.ts.applyChangesToLocalDB({
                 changes: incoming
               });
             } catch (err) {
@@ -266,6 +266,7 @@
                   error: err instanceof Error ? err.message : String(err)
                 }
               });
+              break;
             }
             ws.send(JSON.stringify({
               type: tinysynqLib.SyncResponseType.ack,

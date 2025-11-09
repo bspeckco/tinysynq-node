@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeAll, afterAll } from 'vitest';
+import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest';
 import { getConfiguredDb, removeDb } from './utils.js';
 import { WebSocket } from 'ws';
 import { startTinySynqServer, TinySynqServerControl, TSServerParams } from '../src/lib/server.js';
@@ -166,6 +166,75 @@ describe('Server', () => {
       })
     ).rejects.toThrow('Received 500 Internal Server Error');
   });
+
+  test('responds with only a NACK when applyChangesToLocalDB fails', async () => {
+    cleanup();
+    ts = getConfiguredDb({ useDefault: true });
+    const applySpy = vi.spyOn(ts, 'applyChangesToLocalDB').mockImplementation(() => {
+      throw new Error('forced apply failure');
+    });
+
+    serverControl = startTinySynqServer({ ts, logOptions: { minLevel: 5 }, port: TEST_PORT });
+
+    const frames = await new Promise<any[]>((resolve, reject) => {
+      const ws = new WebSocket(`ws://localhost:${TEST_PORT}`);
+      const collected: any[] = [];
+      let settled = false;
+
+      const finish = (err?: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        ws.close();
+        if (err) {
+          reject(err);
+        } else {
+          resolve(collected);
+        }
+      };
+
+      const timeoutId = setTimeout(() => finish(new Error('Timed out waiting for server response')), 1000);
+
+      ws.on('open', () => {
+        const requestId = 'req-failure-test';
+        const now = new Date().toISOString();
+        const change = {
+          id: 1,
+          table_name: 'items',
+          row_id: 'item-server-test',
+          operation: 'INSERT',
+          data: JSON.stringify({ item_id: 'item-server-test', name: 'Server push test' }),
+          source: 'client-under-test',
+          vclock: { 'client-under-test': 1 },
+          modified: now,
+        };
+        ws.send(JSON.stringify({
+          type: 'push',
+          requestId,
+          source: 'client-under-test',
+          since: now,
+          checkpoint: 0,
+          changes: [change],
+        }));
+      });
+
+      ws.on('message', (data) => {
+        collected.push(JSON.parse(data.toString()));
+        if (collected.length === 1) {
+          setTimeout(() => finish(), 200);
+        } else {
+          finish();
+        }
+      });
+
+      ws.on('error', (err) => finish(err instanceof Error ? err : new Error('WebSocket error')));
+    });
+
+    expect(frames).toHaveLength(1);
+    expect(frames[0]).toMatchObject({ type: 'nack' });
+
+    applySpy.mockRestore();
+  }, { timeout: 5000 });
 
   // --- Bearer Token (Auth) Tests ---
 
